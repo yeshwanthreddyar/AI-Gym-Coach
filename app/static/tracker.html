@@ -1,0 +1,172 @@
+﻿<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>My progress Â· AI Gym Coach</title></head>
+<body>
+<div id="nav"></div>
+<main class="wrap" style="padding:40px 20px 60px">
+  <h1 class="disp" style="font-size:clamp(48px,8vw,90px)">My progress</h1>
+  <p class="muted">Check in each day, see what you trained, and get suggestions for each muscle group.</p>
+
+  <div id="loginNote" class="card" style="display:none;margin-top:24px">
+    <p>Log in to see your progress.</p>
+    <a class="btn" href="/login?next=/tracker">Log in</a>
+  </div>
+
+  <div id="content" style="display:none">
+    <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(260px,1fr));margin-top:24px">
+      <div class="card">
+        <div class="muted">Daily check-in</div>
+        <div class="disp" id="streak" style="font-size:80px;color:var(--green);line-height:1">0</div>
+        <div class="muted" id="streakText">day streak</div>
+        <button class="btn" id="checkBtn" style="width:100%;margin-top:14px" onclick="checkIn()">Check in today</button>
+        <div class="muted" id="checkMsg" style="margin-top:8px;font-size:14px"></div>
+      </div>
+      <div class="card">
+        <div class="muted">Suggestions (last 30 days)</div>
+        <div id="sugg" style="margin-top:8px"></div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:18px">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
+        <h2 class="disp" style="font-size:40px">Reps by muscle group</h2>
+        <div id="range" style="display:flex;gap:8px"></div>
+      </div>
+      <div id="groups" style="margin-top:14px"></div>
+      <details style="margin-top:14px">
+        <summary class="muted">Reps by muscle</summary>
+        <div id="muscles" style="margin-top:10px"></div>
+      </details>
+    </div>
+
+    <div class="card" style="margin-top:18px">
+      <h2 class="disp" style="font-size:40px">Workout history</h2>
+      <div id="history" style="margin-top:10px"></div>
+    </div>
+  </div>
+</main>
+<div id="footer"></div>
+<div id="toast"></div>
+<script src="/static/common.js?v=2"></script>
+<script>
+const GROUP_ORDER = ["Chest", "Back", "Legs", "Shoulders", "Arms", "Core"];
+const RANGES = [7, 30, 90];
+let days = 30;
+
+function setEl(id, html) { const el = document.getElementById(id); if (el) el.innerHTML = html; }
+function setText(id, t) { const el = document.getElementById(id); if (el) el.textContent = t; }
+
+async function getJSON(url, opts) {
+  const r = await fetch(url, Object.assign({ credentials: "same-origin" }, opts || {}));
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) {
+    const err = new Error(d.detail || "Request failed");
+    err.status = r.status;
+    throw err;
+  }
+  return d;
+}
+
+// Horizontal bars, one row per key. Keys with no reps still appear, at zero.
+function barsHTML(map, keys) {
+  const max = Math.max(1, ...keys.map(k => map[k] || 0));
+  return keys.map(k => {
+    const v = map[k] || 0;
+    const pct = Math.round((v / max) * 100);
+    return `<div style="display:flex;align-items:center;gap:10px;margin:8px 0">
+      <div style="width:110px">${esc(k)}</div>
+      <div style="flex:1;background:var(--line);border-radius:999px;height:14px;overflow:hidden">
+        <div style="width:${pct}%;height:100%;background:var(--green)"></div></div>
+      <div style="width:60px;text-align:right">${Math.round(v)}</div></div>`;
+  }).join("");
+}
+
+function suggestionsHTML(list) {
+  if (!list.length) return '<p class="muted">Nothing to fix right now. Keep logging sets.</p>';
+  return list.map(x => `<div style="margin-top:12px">
+    <b>${esc(x.message)}</b>
+    <div class="muted" style="font-size:14px">${esc(x.reason)}</div>
+    <div style="font-size:14px">${esc(x.action)}</div></div>`).join("");
+}
+
+function sessionHTML(s) {
+  const chips = Object.entries(s.by_group).map(([g, r]) =>
+    `<span style="display:inline-block;margin:2px 6px 2px 0;padding:3px 10px;border-radius:999px;background:var(--panel);border:1px solid var(--line);font-size:13px">${esc(g)} Â· ${Math.round(r)}</span>`).join("");
+  const sets = s.sets.map(x => {
+    const w = Number(x.weight) ? ` @ ${x.weight} kg` : "";
+    const f = x.form_score != null ? ` Â· form ${x.form_score}` : "";
+    return `<div class="muted" style="font-size:14px">${esc(x.exercise)}: ${x.reps} reps${w}${f}</div>`;
+  }).join("");
+  const form = s.avg_form != null ? ` Â· avg form ${s.avg_form}` : "";
+  return `<div style="border-top:1px solid var(--line);padding:14px 0">
+    <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px">
+      <b>${esc(s.day)}</b><span>${s.total_reps} reps${form}</span></div>
+    <div style="margin-top:6px">${chips}</div>
+    <div style="margin-top:6px">${sets}</div></div>`;
+}
+
+function rangeButtons() {
+  setEl("range", RANGES.map(n =>
+    `<button class="tab ${n === days ? "on" : ""}" onclick="setRange(${n})">${n} days</button>`).join(""));
+}
+
+async function setRange(n) {
+  days = n;
+  rangeButtons();
+  await loadHistory();
+}
+
+async function loadHistory() {
+  const hist = await getJSON(`/api/me/history?days=${days}`);
+  setEl("groups", barsHTML(hist.by_group, GROUP_ORDER));
+  const muscles = Object.keys(hist.by_muscle).sort((a, b) => hist.by_muscle[b] - hist.by_muscle[a]);
+  setEl("muscles", muscles.length ? barsHTML(hist.by_muscle, muscles)
+    : '<p class="muted">No reps in this range yet.</p>');
+  setEl("history", hist.sessions.length ? hist.sessions.map(sessionHTML).join("")
+    : '<p class="muted">No workouts in this range. Save a set from a workout page to see it here.</p>');
+}
+
+async function loadSummary() {
+  const s = await getJSON("/api/me/summary");
+  setText("streak", s.streak);
+  setText("streakText", "day streak");
+  const btn = document.getElementById("checkBtn");
+  btn.disabled = s.checked_in_today;
+  btn.textContent = s.checked_in_today ? "Checked in today âœ“" : "Check in today";
+  setEl("sugg", suggestionsHTML(s.suggestions));
+}
+
+async function checkIn() {
+  const btn = document.getElementById("checkBtn");
+  btn.disabled = true;
+  try {
+    const d = await getJSON("/api/checkin", { method: "POST" });
+    setText("checkMsg", d.already ? "You already checked in today." : "Checked in. Keep the streak going!");
+    await loadSummary();
+  } catch (e) {
+    setText("checkMsg", e.message);
+    btn.disabled = false;
+  }
+}
+
+async function init() {
+  try {
+    await getJSON("/auth/me");
+  } catch (e) {
+    document.getElementById("loginNote").style.display = "block";
+    return;
+  }
+  document.getElementById("content").style.display = "block";
+  rangeButtons();
+  try {
+    await Promise.all([loadSummary(), loadHistory()]);
+  } catch (e) {
+    setEl("history", `<p class="muted">Could not load your progress: ${esc(e.message)}</p>`);
+  }
+}
+
+init();
+</script>
+</body>
+</html>
+

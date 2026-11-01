@@ -1,0 +1,250 @@
+﻿<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI Gym Coach - Live</title>
+<style>
+:root{--bg:#0f1115;--card:#171a21;--line:#262b36;--text:#e8eaf0;--muted:#8b93a7;--accent:#3ddc97;--bad:#ff6b6b}
+*{box-sizing:border-box}
+body{margin:0;font:15px/1.5 system-ui,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--text)}
+header{padding:18px 26px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px}
+header a{color:var(--accent);text-decoration:none}
+h1{margin:0;font-size:20px}
+main{display:grid;grid-template-columns:minmax(320px,1fr) 300px;gap:18px;padding:22px 26px}
+@media (max-width:820px){main{grid-template-columns:1fr}}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px}
+.stage{background:#000;border-radius:12px;overflow:hidden;aspect-ratio:4/3}
+canvas{width:100%;height:100%;display:block}
+.controls{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-bottom:14px}
+label{display:block;color:var(--muted);font-size:13px;margin-bottom:4px}
+select,button{padding:9px 12px;border-radius:8px;border:1px solid var(--line);background:#0f1218;color:var(--text);font:inherit}
+button{background:var(--accent);color:#06210f;border:0;font-weight:600;cursor:pointer}
+button.ghost{background:transparent;color:var(--text);border:1px solid var(--line)}
+button:disabled{opacity:.5;cursor:default}
+.count{font-size:64px;font-weight:700;color:var(--accent);line-height:1}
+.muted{color:var(--muted)}
+.fb{margin-top:8px;min-height:24px}
+.flag{display:inline-block;margin:2px 4px 2px 0;padding:2px 8px;border-radius:999px;background:#3a2022;color:#ffd0d0;font-size:12px}
+.flag.ok{background:#16382a;color:#c7f5df}
+table{width:100%;border-collapse:collapse;font-size:14px}
+td,th{padding:6px 4px;border-bottom:1px solid var(--line);text-align:left}
+#status{margin-top:10px}
+</style>
+</head>
+<body>
+<header>
+  <h1>Live rep counter</h1>
+  <a href="/">Back to dashboard</a>
+</header>
+<main>
+  <section class="card">
+    <div class="controls">
+      <div><label>Exercise</label><select id="ex"></select></div>
+      <div><label>Side</label>
+        <select id="side"><option value="r">Right</option><option value="l">Left</option></select></div>
+      <button id="start">Start camera</button>
+      <button id="reset" class="ghost">Reset reps</button>
+    </div>
+    <div class="stage"><canvas id="cv" width="640" height="360"></canvas></div>
+    <video id="vid" playsinline muted style="display:none"></video>
+    <div id="status" class="muted">Pick an exercise and press Start camera. Film side-on (front-on for lateral raise) with your whole body visible.</div>
+  </section>
+  <aside class="card">
+    <label>Reps</label>
+    <div id="count" class="count">0</div>
+    <div id="angle" class="muted">angle: -</div>
+    <div id="last" class="fb"></div>
+    <h3 style="font-size:14px;margin:16px 0 6px">Rep log</h3>
+    <table><thead><tr><th>#</th><th>Score</th><th>Tempo</th><th>Flags</th></tr></thead>
+    <tbody id="rows"></tbody></table>
+  </aside>
+</main>
+
+<script type="module">
+import { PoseLandmarker, FilesetResolver } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14";
+
+const WASM = "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm";
+const MODEL = "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_full/float16/latest/pose_landmarker_full.task";
+const LM = {l_shoulder:11, r_shoulder:12, l_elbow:13, r_elbow:14, l_wrist:15, r_wrist:16,
+            l_hip:23, r_hip:24, l_knee:25, r_knee:26, l_ankle:27, r_ankle:28};
+const LEAN_LIMIT = 45; // same as personalized_lean_limit(1.0) in Python
+
+const $ = id => document.getElementById(id);
+const vid = $("vid"), cv = $("cv"), ctx = cv.getContext("2d");
+let catalog = {}, landmarker = null, stream = null, running = false, counter = null, lastTs = -1;
+
+// ---------- geometry (mirrors app/biomech.py) ----------
+function angleAt(a, b, c) {
+  const ax = a[0]-b[0], ay = a[1]-b[1], cx = c[0]-b[0], cy = c[1]-b[1];
+  const n = Math.hypot(ax, ay) * Math.hypot(cx, cy) + 1e-9;
+  const cos = Math.min(1, Math.max(-1, (ax*cx + ay*cy) / n));
+  return Math.acos(cos) * 180 / Math.PI;
+}
+function torsoLean(sh, hip) {
+  return Math.atan2(Math.abs(sh[0]-hip[0]), -(sh[1]-hip[1])) * 180 / Math.PI;
+}
+function drivingAngle(f, side, ex) {
+  const [p, v, d] = ex.joint.map(j => f[`${side}_${j}`]);
+  const a = angleAt(p, v, d);
+  return ex.invert ? 180 - a : a;
+}
+
+// ---------- scoring (mirrors app/reps.py score_rep) ----------
+function scoreRep(minAngle, tempo, ex, leanWin) {
+  const flags = []; let pen = 0;
+  if (minAngle > ex.depth_max) { flags.push("incomplete_depth"); pen += 25; }
+  if (ex.lean_check && Math.max(...leanWin) > LEAN_LIMIT) { flags.push("excess_forward_lean"); pen += 20; }
+  if (tempo < 0.8) { flags.push("too_fast"); pen += 10; }
+  return { score: Math.max(0, 100 - pen), flags, tempo, minAngle };
+}
+
+// ---------- streaming counter (mirrors app/live.py LiveCounter) ----------
+class LiveCounter {
+  constructor(ex) { this.ex = ex; this.buf = []; this.state = "top"; this.lo = Infinity;
+                    this.tStart = null; this.leanWin = []; this.reps = []; }
+  update(angle, lean, t) {
+    this.buf.push(angle); if (this.buf.length > 5) this.buf.shift();
+    const v = this.buf.reduce((s, x) => s + x, 0) / this.buf.length;
+    const ex = this.ex;
+    if (this.state === "top") {
+      if (v > ex.high) { this.tStart = t; this.leanWin = [lean]; }
+      else if (v < ex.low) {
+        this.state = "bottom"; this.lo = v;
+        if (this.tStart === null) this.tStart = t;
+        this.leanWin.push(lean);
+      }
+      return null;
+    }
+    this.leanWin.push(lean);
+    this.lo = Math.min(this.lo, v);
+    if (v > ex.high) {
+      const rep = scoreRep(this.lo, t - this.tStart, ex, this.leanWin);
+      this.reps.push(rep);
+      this.state = "top"; this.lo = Infinity; this.leanWin = [];
+      return rep;
+    }
+    return null;
+  }
+}
+
+// ---------- UI ----------
+function resetCounter() {
+  counter = new LiveCounter(catalog[$("ex").value]);
+  $("count").textContent = "0";
+  $("rows").innerHTML = "";
+  $("last").innerHTML = "";
+}
+
+function addRep(r) {
+  const n = counter.reps.length;
+  $("count").textContent = n;
+  const flags = r.flags.length
+    ? r.flags.map(f => `<span class="flag">${f.replace(/_/g, " ")}</span>`).join("")
+    : '<span class="flag ok">good form</span>';
+  $("last").innerHTML = `Rep ${n}: <b>${r.score}/100</b><div>${flags}</div>`;
+  $("rows").insertAdjacentHTML("beforeend",
+    `<tr><td>${n}</td><td>${r.score}</td><td>${r.tempo.toFixed(1)}s</td><td>${r.flags.join(", ") || "-"}</td></tr>`);
+}
+
+function drawFrame(f, side, ex, reps) {
+  ctx.drawImage(vid, 0, 0, cv.width, cv.height);
+  const pts = ex.joint.map(j => f[`${side}_${j}`]);
+  ctx.strokeStyle = "#3ddc97"; ctx.lineWidth = 4; ctx.beginPath();
+  pts.forEach((p, i) => (i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1])));
+  ctx.stroke();
+  ctx.fillStyle = "#ffffff";
+  pts.forEach(p => { ctx.beginPath(); ctx.arc(p[0], p[1], 6, 0, Math.PI * 2); ctx.fill(); });
+  ctx.fillStyle = "#3ddc97"; ctx.font = "bold 40px sans-serif";
+  ctx.fillText(String(reps), 20, 50);
+}
+
+// ---------- pose loop ----------
+function loop() {
+  if (!running) return;
+  if (vid.readyState >= 2) {
+    let ts = Math.round(performance.now());
+    if (ts <= lastTs) ts = lastTs + 1;
+    lastTs = ts;
+    const res = landmarker.detectForVideo(vid, ts);
+    const side = $("side").value;
+    const ex = catalog[$("ex").value];
+    if (res.landmarks && res.landmarks[0]) {
+      const lm = res.landmarks[0], W = cv.width, H = cv.height;
+      const f = {};
+      for (const [k, i] of Object.entries(LM)) f[k] = [lm[i].x * W, lm[i].y * H];
+      const angle = drivingAngle(f, side, ex);
+      const lean = torsoLean(f[`${side}_shoulder`], f[`${side}_hip`]);
+      const done = counter.update(angle, lean, ts / 1000);
+      $("angle").textContent = `angle: ${angle.toFixed(1)} deg`;
+      if (done) addRep(done);
+      drawFrame(f, side, ex, counter.reps.length);
+    } else {
+      ctx.drawImage(vid, 0, 0, cv.width, cv.height);
+      $("angle").textContent = "no person detected";
+    }
+  }
+  requestAnimationFrame(loop);
+}
+
+async function createLandmarker(delegate) {
+  const fileset = await FilesetResolver.forVisionTasks(WASM);
+  return PoseLandmarker.createFromOptions(fileset, {
+    baseOptions: { modelAssetPath: MODEL, delegate },
+    runningMode: "VIDEO", numPoses: 1,
+    minPoseDetectionConfidence: 0.3, minPosePresenceConfidence: 0.3, minTrackingConfidence: 0.3
+  });
+}
+
+async function start() {
+  $("start").disabled = true;
+  try {
+    if (!landmarker) {
+      $("status").textContent = "Loading pose model (first time only)...";
+      landmarker = await createLandmarker("GPU").catch(() => createLandmarker("CPU"));
+    }
+    if (!counter) resetCounter();
+    stream = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 }, audio: false });
+    vid.srcObject = stream;
+    await vid.play();
+    await new Promise(r => { if (vid.readyState >= 2) r(); else vid.onloadeddata = r; });
+    cv.width = vid.videoWidth; cv.height = vid.videoHeight;
+    running = true;
+    $("start").textContent = "Stop camera";
+    $("status").textContent = "Counting. Do full reps, side-on.";
+    requestAnimationFrame(loop);
+  } catch (e) {
+    $("status").textContent = "Could not start: " + e.message;
+  } finally {
+    $("start").disabled = false;
+  }
+}
+
+function stop() {
+  running = false;
+  if (stream) stream.getTracks().forEach(t => t.stop());
+  vid.srcObject = null;
+  $("start").textContent = "Start camera";
+  $("status").textContent = "Stopped. Reps are kept until you press Reset.";
+}
+
+async function init() {
+  catalog = await (await fetch("/exercises")).json();
+  const sel = $("ex");
+  for (const k of Object.keys(catalog)) {
+    const o = document.createElement("option");
+    o.value = k; o.textContent = k.replace(/_/g, " ");
+    sel.appendChild(o);
+  }
+  sel.value = "squat";
+  sel.onchange = resetCounter;
+  resetCounter();
+}
+
+$("start").onclick = () => (running ? stop() : start());
+$("reset").onclick = resetCounter;
+init();
+</script>
+</body>
+</html>
+

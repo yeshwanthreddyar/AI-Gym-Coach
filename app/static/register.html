@@ -1,0 +1,86 @@
+﻿<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Register · AI Gym Coach</title></head>
+<body>
+<div id="nav"></div>
+<main class="wrap" style="display:flex;justify-content:center;padding:50px 20px">
+  <div class="card" style="width:min(480px,100%)">
+    <div id="formPanel">
+      <h1 class="disp" style="font-size:52px">Create your account</h1>
+      <p class="muted">You'll get a unique UserID straight away.</p>
+      <label>Username</label>
+      <input id="username" autocomplete="username" placeholder="3-20 letters, numbers or _">
+      <label>Email</label>
+      <input id="email" type="email" autocomplete="email" placeholder="you@example.com">
+      <label>Password</label>
+      <input id="password" type="password" autocomplete="new-password" placeholder="At least 8 characters, with a letter and a number">
+      <label>Confirm password</label>
+      <input id="confirm" type="password" autocomplete="new-password">
+      <label>Fitness goal</label>
+      <select id="goal">
+        <option value="strength">Get stronger</option>
+        <option value="muscle">Build muscle</option>
+        <option value="fat_loss">Lose fat</option>
+        <option value="mobility">Improve mobility</option>
+        <option value="general">General fitness</option>
+      </select>
+      <button id="submit" class="btn" style="width:100%" onclick="register()">Create account</button>
+      <p id="msg" style="color:#ffb3a3;min-height:22px;margin:10px 0 0"></p>
+      <p class="muted" style="text-align:center;margin-top:14px">Already a member? <a href="/login" style="color:var(--green);font-weight:700">Log in</a></p>
+    </div>
+
+    <div id="done" style="display:none">
+      <div class="disp" style="font-size:52px;color:var(--green)">You're in!</div>
+      <p>Your UserID is</p>
+      <div class="disp" id="uidOut" style="font-size:56px;letter-spacing:2px"></div>
+      <p class="muted">Keep this for your records. You can log in with your username or email and password.</p>
+      <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:18px">
+        <a class="btn" href="/profile">View my profile →</a>
+        <a class="btn ghost" href="/start">Start Your Journey</a>
+      </div>
+    </div>
+  </div>
+</main>
+<div id="footer"></div>
+<div id="toast"></div>
+<script src="/static/common.js?v=2"></script>
+<script>
+function errText(d) {
+  if (typeof d.detail === "string") return d.detail;
+  if (Array.isArray(d.detail)) return d.detail.map(e => e.msg).join(" ");
+  return "Please check the form and try again.";
+}
+
+async function register() {
+  const btn = $("submit");
+  $("msg").textContent = "";
+  const password = $("password").value;
+  if (password !== $("confirm").value) { $("msg").textContent = "Passwords do not match."; return; }
+  btn.disabled = true;
+  try {
+    const r = await fetch("/auth/register", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        username: $("username").value.trim(),
+        email: $("email").value.trim(),
+        password,
+        goal: $("goal").value,
+        equipment: ["barbell", "dumbbell", "machine", "bodyweight"]
+      })
+    });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(errText(d));
+    $("uidOut").textContent = d.user_code;
+    $("formPanel").style.display = "none";
+    $("done").style.display = "block";
+    toast("Account created. Welcome!");
+  } catch (e) {
+    $("msg").textContent = e.message;
+    btn.disabled = false;
+  }
+}
+</script>
+</body>
+</html>
+

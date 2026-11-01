@@ -1,0 +1,31 @@
+﻿<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Workouts · AI Gym Coach</title></head>
+<body>
+<div id="nav"></div>
+<main class="wrap" style="padding:40px 20px 20px">
+  <h1 class="disp" style="font-size:clamp(56px,9vw,110px)">Workouts</h1>
+  <p class="muted" style="max-width:560px">Choose a muscle group, then open any exercise to see the form cues, watch the demo, and start the live counter.</p>
+  <div style="display:flex;gap:10px;flex-wrap:wrap;margin:24px 0"><div id="tabs" style="display:flex;gap:10px;flex-wrap:wrap"></div></div>
+  <input id="q" placeholder="Search exercises…" style="max-width:360px">
+  <div class="grid" id="grid" style="margin-top:20px"></div>
+</main>
+<div id="footer"></div>
+<div id="toast"></div>
+<script src="/static/common.js?v=2"></script>
+<script src="/static/data.js"></script>
+<script>
+let g = "Chest";
+const search = $("q");
+function render() {
+  const term = search.value.trim().toLowerCase();
+  const list = GROUPS[g].filter(e => e.name.toLowerCase().includes(term));
+  $("tabs").innerHTML = Object.keys(GROUPS).map(k => `<button class="tab ${k === g ? "on" : ""}" onclick="g='${k}';render()">${k} (${GROUPS[k].length})</button>`).join("");
+  $("grid").innerHTML = list.map(tileHTML).join("") || '<p class="muted">No matches.</p>';
+}
+search.oninput = render;
+render();
+</script>
+</body>
+</html>
+

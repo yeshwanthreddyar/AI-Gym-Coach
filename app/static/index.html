@@ -1,0 +1,236 @@
+﻿<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI Gym Coach</title>
+<style>
+:root{--bg:#0f1115;--card:#171a21;--line:#262b36;--text:#e8eaf0;--muted:#8b93a7;--accent:#3ddc97;--warn:#f5b84a;--bad:#ff6b6b;}
+*{box-sizing:border-box}
+body{margin:0;font:15px/1.5 system-ui,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--text)}
+header{padding:20px 28px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px}
+h1{margin:0;font-size:22px} h1 span{color:var(--accent)}
+main{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:18px;padding:22px 28px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px}
+.card h2{margin:0 0 12px;font-size:16px}
+label{display:block;color:var(--muted);font-size:13px;margin:10px 0 4px}
+input,select{width:100%;padding:9px 10px;background:#0f1218;color:var(--text);border:1px solid var(--line);border-radius:8px;font:inherit}
+input[type=checkbox]{width:auto;margin-right:6px}
+button{margin-top:12px;padding:9px 14px;border:0;border-radius:8px;background:var(--accent);color:#06210f;font-weight:600;cursor:pointer}
+button.ghost{background:transparent;color:var(--text);border:1px solid var(--line)}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.muted{color:var(--muted)}
+.badge{display:inline-block;padding:3px 10px;border-radius:999px;font-size:13px;font-weight:600;background:#1f3a2c;color:var(--accent)}
+.badge.maintain,.badge.light{background:#3a3320;color:var(--warn)}
+.badge.rest{background:#3a2022;color:var(--bad)}
+.big{font-size:40px;font-weight:700}
+.ex{padding:10px 0;border-bottom:1px solid var(--line)} .ex:last-child{border:0}
+.toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);padding:10px 16px;border-radius:10px;background:#222838;display:none;max-width:90vw}
+.toast.err{background:#3a2022;color:#ffd0d0}
+.toast.ok{background:#16382a;color:#c7f5df}
+svg{width:100%;height:160px}
+</style>
+</head>
+<body>
+<header>
+  <h1>AI Gym <span>Coach</span></h1>
+  <a href="/live" style="color:#3ddc97;text-decoration:none">Live rep counter â†’</a>
+  <div id="userbar" class="muted">No profile selected</div>
+</header>
+<main>
+  <section class="card">
+    <h2>1. Profile</h2>
+    <label>Name</label><input id="name" placeholder="Your name">
+    <label>Equipment you have</label>
+    <div id="equip">
+      <label><input type="checkbox" value="barbell">Barbell</label>
+      <label><input type="checkbox" value="dumbbell">Dumbbell</label>
+      <label><input type="checkbox" value="machine">Machines</label>
+    </div>
+    <label>Injuries (muscle groups to avoid, comma separated)</label>
+    <input id="injuries" placeholder="e.g. shoulders, back">
+    <button onclick="createUser()">Create profile</button>
+    <label>Or use an existing profile ID</label>
+    <div class="row"><input id="uidInput" type="number" min="1" placeholder="ID"><button class="ghost" onclick="useUser()" style="margin-top:0">Use</button></div>
+  </section>
+
+  <section class="card">
+    <h2>2. Daily check-in</h2>
+    <label>Date</label><input id="ciDay" type="date">
+    <label>Sleep (hours): <b id="sleepVal">7</b></label>
+    <input id="sleep" type="range" min="0" max="12" step="0.5" value="7" oninput="sleepVal.textContent=this.value">
+    <label>Soreness (1 = none, 5 = very sore): <b id="soreVal">2</b></label>
+    <input id="sore" type="range" min="1" max="5" value="2" oninput="soreVal.textContent=this.value">
+    <button onclick="checkin()">Save check-in</button>
+  </section>
+
+  <section class="card">
+    <h2>3. Log a set</h2>
+    <label>Date</label><input id="setDay" type="date">
+    <label>Exercise</label>
+    <input id="exercise" list="exList" placeholder="Back squat">
+    <datalist id="exList">
+      <option>Back squat</option><option>Romanian deadlift</option><option>Leg press</option>
+      <option>Bench press</option><option>Overhead press</option><option>Push-up</option>
+      <option>Barbell row</option><option>Lat pulldown</option><option>Bicep curl</option>
+    </datalist>
+    <div class="row">
+      <div><label>Weight (kg)</label><input id="weight" type="number" min="0" step="0.5" value="60"></div>
+      <div><label>Reps</label><input id="reps" type="number" min="1" value="8"></div>
+    </div>
+    <label>Form score (0-100)</label><input id="form" type="number" min="0" max="100" value="85">
+    <button onclick="logSet()">Log set</button>
+    <div id="setResult" class="muted" style="margin-top:8px"></div>
+  </section>
+
+  <section class="card">
+    <h2>4. Today's plan</h2>
+    <button onclick="loadPlan()">Get plan for the check-in date</button>
+    <div id="plan" class="muted" style="margin-top:12px">Save a check-in first.</div>
+  </section>
+
+  <section class="card" style="grid-column:1/-1">
+    <h2>5. Progress</h2>
+    <div class="row" style="max-width:520px">
+      <input id="progEx" list="exList" placeholder="Exercise, e.g. Back squat">
+      <button class="ghost" onclick="loadProgress()" style="margin-top:0">Show</button>
+    </div>
+    <div id="progress" class="muted" style="margin-top:14px">Log some sets, then pick an exercise.</div>
+  </section>
+</main>
+<div id="toast" class="toast"></div>
+
+<script>
+const $ = id => document.getElementById(id);
+const today = () => new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD, local time
+let uid = Number(localStorage.getItem('uid')) || null;
+
+function toast(msg, ok = true) {
+  const t = $('toast');
+  t.textContent = msg;
+  t.className = 'toast ' + (ok ? 'ok' : 'err');
+  t.style.display = 'block';
+  clearTimeout(t._h);
+  t._h = setTimeout(() => (t.style.display = 'none'), 3000);
+}
+
+async function api(path, body) {
+  const opts = body === undefined ? {} : {
+    method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)
+  };
+  const r = await fetch(path, opts);
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) {
+    let msg = data.detail || r.statusText;
+    if (Array.isArray(msg)) msg = msg.map(e => `${e.loc.slice(-1)[0]}: ${e.msg}`).join('; ');
+    throw new Error(msg);
+  }
+  return data;
+}
+
+function setUser(id, name) {
+  uid = id;
+  localStorage.setItem('uid', id);
+  $('userbar').textContent = `Profile #${id}${name ? ' Â· ' + name : ''}`;
+}
+
+function requireUser() {
+  if (!uid) { toast('Create or select a profile first', false); throw new Error('no profile'); }
+}
+
+async function createUser() {
+  const equipment = [...document.querySelectorAll('#equip input:checked')].map(i => i.value);
+  const injuries = $('injuries').value.split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
+  const name = $('name').value.trim() || 'Athlete';
+  try {
+    const { id } = await api('/users', { name, equipment, injuries });
+    setUser(id, name);
+    toast('Profile created');
+  } catch (e) { toast(e.message, false); }
+}
+
+function useUser() {
+  const id = Number($('uidInput').value);
+  if (!id) return toast('Enter a valid ID', false);
+  setUser(id);
+  toast('Profile selected');
+}
+
+async function checkin() {
+  try {
+    requireUser();
+    await api('/checkins', {
+      user_id: uid,
+      day: $('ciDay').value || today(),
+      sleep_hours: Number($('sleep').value),
+      soreness: [Number($('sore').value)]
+    });
+    toast('Check-in saved');
+  } catch (e) { toast(e.message, false); }
+}
+
+async function logSet() {
+  try {
+    requireUser();
+    const r = await api('/sets', {
+      user_id: uid,
+      day: $('setDay').value || today(),
+      exercise: $('exercise').value.trim(),
+      weight: Number($('weight').value),
+      reps: Number($('reps').value),
+      form_score: Number($('form').value)
+    });
+    $('setResult').textContent = `Logged. Estimated 1RM: ${r.e1rm} kg`;
+    toast('Set logged');
+  } catch (e) { toast(e.message, false); }
+}
+
+async function loadPlan() {
+  try {
+    requireUser();
+    const p = await api(`/users/${uid}/plan?day=${$('ciDay').value || today()}`);
+    const exercises = p.session.exercises.map(e =>
+      `<div class="ex"><b>${e.name}</b><div class="muted">${e.sets} Ã— ${e.reps} reps</div></div>`).join('');
+    $('plan').innerHTML = `
+      <div class="big">${p.readiness}</div>
+      <span class="badge ${p.recommendation}">${p.recommendation.toUpperCase()}</span>
+      <div class="muted" style="margin:8px 0">${p.session.split ? p.session.split.toUpperCase() + ' day. ' : ''}${p.session.note || ''}</div>
+      ${exercises || '<div class="muted">No exercises today.</div>'}`;
+  } catch (e) { $('plan').textContent = e.message; }
+}
+
+async function loadProgress() {
+  try {
+    requireUser();
+    const ex = $('progEx').value.trim();
+    if (!ex) return toast('Enter an exercise name', false);
+    const p = await api(`/users/${uid}/progress/${encodeURIComponent(ex)}`);
+    $('progress').innerHTML = chart(p.weekly_e1rm) + `
+      <p>${p.plateau ? '<span class="badge rest">Plateau: flat for 4+ weeks</span>' : '<span class="badge">Progressing</span>'}</p>
+      ${p.next_target ? `<p><b>Next target:</b> ${p.next_target.weight} kg Ã— ${p.next_target.reps} reps
+        <span class="muted">(${p.next_target.note})</span></p>` : ''}`;
+  } catch (e) { $('progress').textContent = e.message; }
+}
+
+function chart(vals) {
+  if (vals.length < 1) return '<div class="muted">No data for this exercise yet.</div>';
+  const W = 600, H = 160, pad = 24;
+  const min = Math.min(...vals), max = Math.max(...vals);
+  const span = max - min || 1;
+  const x = i => vals.length === 1 ? W / 2 : pad + i * (W - 2 * pad) / (vals.length - 1);
+  const y = v => H - pad - (v - min) / span * (H - 2 * pad);
+  const pts = vals.map((v, i) => `${x(i)},${y(v)}`).join(' ');
+  const dots = vals.map((v, i) =>
+    `<circle cx="${x(i)}" cy="${y(v)}" r="4" fill="#3ddc97"><title>${v} kg e1RM</title></circle>`).join('');
+  return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">
+    <polyline fill="none" stroke="#3ddc97" stroke-width="2" points="${pts}"/>${dots}
+    <text x="${pad}" y="16" fill="#8b93a7" font-size="12">est. 1RM per week (kg): ${min} to ${max}</text></svg>`;
+}
+
+// init
+$('ciDay').value = today();
+$('setDay').value = today();
+if (uid) setUser(uid);
+</script>
+</body>
+</html>

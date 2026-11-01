@@ -1,0 +1,329 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>My diet · AI Gym Coach</title></head>
+<body>
+<div id="nav"></div>
+<main class="wrap" style="padding:40px 20px 60px">
+  <h1 class="disp" style="font-size:clamp(48px,8vw,90px)">My diet</h1>
+  <p class="muted" style="max-width:720px">Set your goal, search the foods you eat, and enter the amount. Log your weight each week, and your calories are adjusted if you're moving too slowly or too fast.</p>
+  <p class="muted" style="max-width:720px;font-size:13px">General guidance, not medical advice. If you have a medical condition, are pregnant, or have had an eating disorder, don't use calorie targets without a doctor or dietitian.</p>
+
+  <div id="needLogin" class="card" style="display:none;margin-top:24px"><p>Log in to use your diet plan.</p><a class="btn" href="/login?next=/diet">Log in</a></div>
+
+  <div id="content" style="display:none">
+    <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(320px,1fr));margin-top:24px">
+
+      <div class="card">
+        <h2 class="disp" style="font-size:36px">1. About you and your goal</h2>
+        <div style="display:grid;grid-template-columns:2fr 1fr;gap:10px">
+          <div><label>Current weight</label><input id="weight" type="number" min="1" step="0.1" placeholder="e.g. 75"></div>
+          <div><label>Unit</label><select id="unit"><option value="kg">kg</option><option value="lb">lbs</option></select></div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
+          <div><label>Height (cm)</label><input id="height" type="number" min="50" max="260"></div>
+          <div><label>Age</label><input id="age" type="number" min="13" max="100"></div>
+          <div><label>Sex</label><select id="sex"><option value="male">Male</option><option value="female">Female</option></select></div>
+        </div>
+        <label>Workout you do</label>
+        <select id="workout">
+          <option value="none">Little or no exercise</option><option value="yoga">Yoga / light</option>
+          <option value="strength">Strength training</option><option value="cardio">Cardio / running</option>
+          <option value="hiit">HIIT</option><option value="sports">Sports</option>
+        </select>
+        <label>Diet</label>
+        <select id="diet"><option value="non-vegetarian">Non-vegetarian</option><option value="vegetarian">Vegetarian</option><option value="vegan">Vegan</option></select>
+        <label>Allergies (comma separated)</label>
+        <input id="allergies" placeholder="e.g. milk, peanuts, gluten">
+        <label>My goal</label>
+        <select id="goal" onchange="toggleTarget()">
+          <option value="lose_weight">Lose weight</option>
+          <option value="gain_weight">Gain weight</option>
+          <option value="maintain">Maintain weight</option>
+        </select>
+        <div id="targetBox">
+          <label>Target weight I want to reach</label>
+          <input id="target" type="number" min="1" step="0.1" placeholder="e.g. 70">
+          <p class="muted" id="targetHint" style="font-size:13px;margin:4px 0 0"></p>
+        </div>
+        <button class="btn" style="width:100%;margin-top:12px" onclick="saveProfile()">Save and calculate</button>
+        <div id="profileMsg" class="muted" style="margin-top:8px;font-size:14px"></div>
+        <div id="targets" style="margin-top:14px"></div>
+        <div id="goalTips" style="margin-top:14px"></div>
+      </div>
+
+      <div class="card">
+        <h2 class="disp" style="font-size:36px">2. Log food</h2>
+        <input id="q" placeholder="Search foods, e.g. dal, paneer, banana" oninput="search()">
+        <div id="results" style="margin-top:8px"></div>
+        <div id="picked" style="display:none;margin-top:12px;padding-top:12px;border-top:1px solid var(--line)">
+          <div><b id="pickedName"></b></div>
+          <div style="display:flex;gap:10px;align-items:flex-end;margin-top:8px">
+            <div style="flex:1"><label>Amount (grams)</label><input id="grams" type="number" min="1" value="100"></div>
+            <button class="btn" onclick="addFood()">Add</button>
+          </div>
+        </div>
+        <div id="warn" style="margin-top:12px"></div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:18px">
+      <h2 class="disp" style="font-size:36px">3. My weight this week</h2>
+      <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-top:6px">
+        <div style="flex:1;min-width:160px"><label>Today's weight</label><input id="weightIn" type="number" min="1" step="0.1" placeholder="e.g. 74.5"></div>
+        <button class="btn" onclick="logWeight()">Log weight</button>
+      </div>
+      <div id="weightMsg" class="muted" style="margin-top:8px;font-size:14px"></div>
+      <div id="weightSummary" style="margin-top:12px"></div>
+      <h3 class="disp" style="font-size:26px;margin-top:14px">History</h3>
+      <div id="weightHistory"></div>
+    </div>
+
+    <div class="card" style="margin-top:18px">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
+        <h2 class="disp" style="font-size:36px">4. Today's log</h2>
+        <input id="day" type="date" style="width:auto">
+      </div>
+      <div id="summary" style="margin-top:10px"></div>
+      <div id="log" style="margin-top:10px"></div>
+    </div>
+
+    <div class="card" style="margin-top:18px">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
+        <h2 class="disp" style="font-size:36px">5. Suggested day plan</h2>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn ghost" onclick="loadPlan(0)">Show a plan</button>
+          <button class="btn" onclick="loadPlan(1)">Another plan</button>
+        </div>
+      </div>
+      <div id="planNote" class="muted" style="margin-top:10px;font-size:14px"></div>
+      <div id="plan" class="muted" style="margin-top:10px">Save your details to see a plan that fits your diet, allergies and goal.</div>
+    </div>
+  </div>
+</main>
+<div id="footer"></div>
+<div id="toast"></div>
+<script>window.BG3D_SRC = "/static/food3d.js";</script>
+<script src="/static/common.js?v=2"></script>
+<script>
+let picked = null;
+let planIndex = 0;
+
+const DIET_NOTE = {
+  "vegan": "Vegan plan: plant foods only. No meat, fish, eggs or dairy.",
+  "vegetarian": "Vegetarian plan: plant foods, dairy and paneer only. No meat, fish or eggs.",
+  "non-vegetarian": "Non-vegetarian plan: vegetarian meals plus chicken, fish and eggs."
+};
+
+async function getJSON(url, opts) {
+  const r = await fetch(url, Object.assign({ credentials: "same-origin" }, opts || {}));
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) { const e = new Error(d.detail || "Request failed"); e.status = r.status; throw e; }
+  return d;
+}
+const put = (id, html) => { const el = document.getElementById(id); if (el) el.innerHTML = html; };
+const val = id => document.getElementById(id).value;
+const today = () => new Date().toLocaleDateString("en-CA");
+
+function badge(text, tone) {
+  const colours = { ok: "#16382a;color:#c7f5df", warn: "#3a3320;color:#ffe9a8", bad: "#3a2022;color:#ffd0d0", info: "#1f2a3a;color:#cfe0ff" };
+  return `<span style="display:inline-block;margin:2px 4px 2px 0;padding:2px 9px;border-radius:999px;font-size:12px;background:${colours[tone]}">${esc(text)}</span>`;
+}
+
+function toggleTarget() {
+  const maintain = val("goal") === "maintain";
+  document.getElementById("targetBox").style.display = maintain ? "none" : "block";
+  document.getElementById("targetHint").textContent = val("goal") === "lose_weight"
+    ? "Must be lower than your current weight."
+    : val("goal") === "gain_weight" ? "Must be higher than your current weight." : "";
+}
+
+function targetsHTML(t, adjust) {
+  return `<div class="grid" style="grid-template-columns:repeat(4,1fr);gap:8px">
+    <div class="card" style="padding:12px"><div class="muted" style="font-size:12px">Calories</div><div class="disp" style="font-size:34px;color:var(--green)">${t.kcal}</div></div>
+    <div class="card" style="padding:12px"><div class="muted" style="font-size:12px">Protein g</div><div class="disp" style="font-size:34px">${t.protein}</div></div>
+    <div class="card" style="padding:12px"><div class="muted" style="font-size:12px">Carbs g</div><div class="disp" style="font-size:34px">${t.carbs}</div></div>
+    <div class="card" style="padding:12px"><div class="muted" style="font-size:12px">Fat g</div><div class="disp" style="font-size:34px">${t.fat}</div></div>
+  </div>
+  <p class="muted" style="font-size:13px;margin-top:8px">Maintenance estimate: ${t.tdee} kcal a day.${t.floor_applied ? " A safe minimum calorie level was applied." : ""}${adjust ? ` Weekly review adjustment: ${adjust > 0 ? "+" : ""}${adjust} kcal a day.` : ""}</p>`;
+}
+
+function tipsHTML(tips) {
+  return tips && tips.length ? `<h3 class="disp" style="font-size:26px">How to reach your goal</h3><ul style="margin:6px 0 0 18px">${tips.map(t => `<li style="margin:4px 0">${esc(t)}</li>`).join("")}</ul>` : "";
+}
+
+async function loadProfile() {
+  try {
+    const d = await getJSON("/api/nutrition/profile");
+    const p = d.profile;
+    document.getElementById("weight").value = p.weight_kg;
+    document.getElementById("unit").value = "kg";
+    document.getElementById("height").value = p.height_cm;
+    document.getElementById("age").value = p.age;
+    document.getElementById("sex").value = p.sex;
+    document.getElementById("workout").value = p.workout;
+    document.getElementById("diet").value = p.diet;
+    document.getElementById("allergies").value = p.allergies;
+    document.getElementById("goal").value = p.goal;
+    document.getElementById("target").value = p.target_weight || "";
+    toggleTarget();
+    put("targets", targetsHTML(d.targets, p.calorie_adjust));
+    put("goalTips", tipsHTML(d.goal_tips));
+  } catch (e) {
+    if (e.status === 401) document.getElementById("needLogin").style.display = "block";
+  }
+}
+
+async function saveProfile() {
+  put("profileMsg", "");
+  const goal = val("goal");
+  try {
+    const d = await getJSON("/api/nutrition/profile", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        weight: Number(val("weight")), unit: val("unit"), height_cm: Number(val("height")),
+        age: Number(val("age")), sex: val("sex"), workout: val("workout"), diet: val("diet"),
+        allergies: val("allergies"), goal: goal,
+        target_weight: goal === "maintain" ? null : (val("target") ? Number(val("target")) : null)
+      })
+    });
+    put("targets", targetsHTML(d.targets, d.profile.calorie_adjust));
+    put("goalTips", tipsHTML(d.goal_tips));
+    let msg = "Saved.";
+    if (d.allergies_not_recognised.length) msg += " Not recognised as allergens: " + d.allergies_not_recognised.join(", ") + ".";
+    put("profileMsg", esc(msg));
+    await loadWeight();
+    await loadLog();
+  } catch (e) {
+    put("profileMsg", `<span style="color:#ffb3a3">${esc(e.message)}</span>`);
+  }
+}
+
+function renderWeight(s) {
+  const c = s.change_last_7_days_kg;
+  const changeTxt = c === null ? "not enough data" : (c > 0 ? "+" : "") + c.toFixed(1) + " kg";
+  put("weightSummary", `
+    <div class="grid" style="grid-template-columns:repeat(3,1fr);gap:8px">
+      <div class="card" style="padding:12px"><div class="muted" style="font-size:12px">Current</div><div class="disp" style="font-size:30px">${s.current_kg} kg</div></div>
+      <div class="card" style="padding:12px"><div class="muted" style="font-size:12px">Target</div><div class="disp" style="font-size:30px">${s.target_kg ? s.target_kg + " kg" : "-"}</div></div>
+      <div class="card" style="padding:12px"><div class="muted" style="font-size:12px">Last 7 days</div><div class="disp" style="font-size:30px">${changeTxt}</div></div>
+    </div>
+    <p style="margin:10px 0 4px"><b>${esc(s.goal_label)}</b>${s.remaining_kg !== null && s.remaining_kg !== undefined ? " · " + s.remaining_kg + " kg to go" : ""}</p>
+    <p class="muted" style="font-size:14px">${esc(s.status)}</p>`);
+  put("weightHistory", s.history.slice().reverse().map(h =>
+    `<div style="font-size:14px;padding:4px 0;border-top:1px solid var(--line)">${esc(h.day)} · ${h.kg} kg</div>`).join("")
+    || '<p class="muted">No weigh-ins yet.</p>');
+}
+
+async function loadWeight() {
+  try { renderWeight(await getJSON("/api/weight/summary")); }
+  catch (e) { /* no profile yet */ }
+}
+
+async function logWeight() {
+  put("weightMsg", "");
+  try {
+    const d = await getJSON("/api/weight", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ day: today(), weight: Number(val("weightIn")), unit: val("unit") })
+    });
+    put("weightMsg", esc(d.review));
+    renderWeight(d);
+    document.getElementById("weightIn").value = "";
+  } catch (e) {
+    put("weightMsg", `<span style="color:#ffb3a3">${esc(e.message)}</span>`);
+  }
+}
+
+let searchTimer = null;
+function search() {
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(async () => {
+    const q = val("q").trim();
+    if (!q) { put("results", ""); return; }
+    const d = await getJSON("/api/foods/search?q=" + encodeURIComponent(q));
+    put("results", d.results.map(f => `<div onclick='pick(${JSON.stringify(f.name)})'
+      style="padding:8px 0;border-bottom:1px solid var(--line);cursor:pointer">
+      <b>${esc(f.name)}</b> <span class="muted" style="font-size:13px">${f.kcal_per_100g} kcal / 100 g</span><br>
+      ${f.fits_diet ? badge("fits your diet", "ok") : badge("not your diet", "bad")}
+      ${f.has_allergen ? badge("allergen", "bad") : ""}
+      ${f.flag === "limit" ? badge("eat rarely", "warn") : ""}</div>`).join("") || '<p class="muted">No matches.</p>');
+  }, 250);
+}
+
+function pick(name) {
+  picked = name;
+  put("pickedName", esc(name));
+  document.getElementById("picked").style.display = "block";
+  document.getElementById("grams").focus();
+}
+
+async function addFood() {
+  if (!picked) return;
+  put("warn", "");
+  try {
+    const d = await getJSON("/api/food-log", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ day: val("day"), food: picked, grams: Number(val("grams")) })
+    });
+    if (d.status !== "ok") {
+      put("warn", `<div class="card" style="border-color:#ffb020">
+        <b>${esc(d.warning)}</b>
+        ${d.alternatives.length ? "<div style='margin-top:6px'>" + d.alternatives.map(a => badge(a, "info")).join("") + "</div>" : ""}</div>`);
+    }
+    renderDay(d.day);
+  } catch (e) {
+    put("warn", `<div class="card" style="border-color:#ff6b6b">${esc(e.message)}</div>`);
+  }
+}
+
+function renderDay(day) {
+  const t = day.totals, target = day.target_kcal, pct = Math.min(100, Math.round(t.kcal / target * 100));
+  put("summary", `<div><b>${Math.round(t.kcal)}</b> of ${target} kcal · protein ${Math.round(t.protein)} of ${day.protein_target} g
+    ${day.remaining_kcal >= 0 ? badge(Math.round(day.remaining_kcal) + " kcal left", "ok") : badge(Math.round(-day.remaining_kcal) + " kcal over", "bad")}</div>
+    <div style="height:10px;background:var(--line);border-radius:999px;margin-top:8px;overflow:hidden">
+      <div style="height:100%;width:${pct}%;background:var(--green)"></div></div>`);
+  put("log", day.entries.length ? day.entries.map(e => `<div style="display:flex;justify-content:space-between;gap:10px;border-top:1px solid var(--line);padding:8px 0">
+      <div><b>${esc(e.food)}</b> · ${e.grams} g ${e.flag === "ok" ? "" : badge({ limit: "eat rarely", not_in_diet: "not your diet" }[e.flag] || e.flag, e.flag === "limit" ? "warn" : "bad")}
+        <div class="muted" style="font-size:13px">${Math.round(e.kcal)} kcal · ${Math.round(e.protein)} g protein</div></div>
+      <button class="btn ghost" style="padding:6px 10px" onclick="removeEntry(${e.id})">Remove</button></div>`).join("")
+    : '<p class="muted">Nothing logged for this day yet.</p>');
+}
+
+async function loadLog() {
+  try { renderDay(await getJSON("/api/food-log?day=" + encodeURIComponent(val("day")))); }
+  catch (e) { /* no profile yet */ }
+}
+
+async function removeEntry(id) {
+  await getJSON("/api/food-log/" + id, { method: "DELETE" });
+  await loadLog();
+}
+
+async function loadPlan(step) {
+  planIndex += step;
+  try {
+    const p = await getJSON("/api/nutrition/plan?day_index=" + planIndex);
+    put("planNote", esc(DIET_NOTE[p.diet] || ""));
+    put("plan", p.meals.map(m => `<div style="border-top:1px solid var(--line);padding:12px 0">
+      <b style="text-transform:capitalize">${esc(m.meal)}</b> <span class="muted">· ${Math.round(m.totals.kcal)} kcal · ${Math.round(m.totals.protein)} g protein</span>
+      <div style="margin-top:6px">${m.items.map(i => `<div>${esc(i.food)} · ${i.grams} g</div>`).join("")}</div></div>`).join("")
+      + `<p class="muted" style="font-size:13px">Day total ${Math.round(p.totals.kcal)} kcal against a target of ${p.targets.kcal}. Press "Another plan" for different foods.</p>`);
+  } catch (e) {
+    put("plan", esc(e.message));
+  }
+}
+
+async function init() {
+  try { await getJSON("/auth/me"); }
+  catch (e) { document.getElementById("needLogin").style.display = "block"; return; }
+  document.getElementById("content").style.display = "block";
+  document.getElementById("day").value = today();
+  document.getElementById("day").onchange = loadLog;
+  await loadProfile();
+  await loadWeight();
+  await loadLog();
+}
+init();
+</script>
+</body>
+</html>

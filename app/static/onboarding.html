@@ -1,0 +1,40 @@
+﻿<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Start your journey · AI Gym Coach</title></head>
+<body>
+<div id="nav"></div>
+<main class="wrap" style="padding:60px 20px">
+  <p style="color:var(--green);font-weight:700;letter-spacing:2px;margin:0">WELCOME</p>
+  <h1 class="disp" id="hi" style="font-size:clamp(56px,9vw,110px);margin:10px 0 30px">Let's go</h1>
+  <div class="grid">
+    <a class="card" href="/workouts">
+      <div class="disp" style="font-size:44px;color:var(--orange)">01</div>
+      <h3 style="font-size:28px;margin:8px 0">Pick a muscle group</h3>
+      <p class="muted">Start with chest, back, or legs. Each group has 15 exercises.</p>
+    </a>
+    <a class="card" href="/workouts">
+      <div class="disp" style="font-size:44px;color:var(--green)">02</div>
+      <h3 style="font-size:28px;margin:8px 0">Start the live counter</h3>
+      <p class="muted">Open any exercise and let the camera count your reps and score your form.</p>
+    </a>
+    <a class="card" href="/profile">
+      <div class="disp" style="font-size:44px;color:var(--blue)">03</div>
+      <h3 style="font-size:28px;margin:8px 0">Track your progress</h3>
+      <p class="muted">Your profile keeps your UserID, goal, and activity in one place.</p>
+    </a>
+  </div>
+</main>
+<div id="footer"></div>
+<div id="toast"></div>
+<script src="/static/common.js?v=2"></script>
+<script>
+(async () => {
+  const r = await fetch("/auth/me");
+  if (!r.ok) { location.href = "/login?next=/onboarding"; return; }
+  const u = await r.json();
+  $("hi").textContent = "Let's go, " + u.username;
+})();
+</script>
+</body>
+</html>
+

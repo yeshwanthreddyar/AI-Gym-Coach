@@ -1,0 +1,89 @@
+bench-press.mp4    <- Bench press
+incline-bench-press.mp4    <- Incline bench press
+decline-bench-press.mp4    <- Decline bench press
+dumbbell-fly.mp4    <- Dumbbell fly
+incline-dumbbell-fly.mp4    <- Incline dumbbell fly
+cable-crossover.mp4    <- Cable crossover
+push-up.mp4    <- Push-up
+wide-push-up.mp4    <- Wide push-up
+diamond-push-up.mp4    <- Diamond push-up
+decline-push-up.mp4    <- Decline push-up
+dips.mp4    <- Dips
+pec-deck.mp4    <- Pec deck
+machine-chest-press.mp4    <- Machine chest press
+svend-press.mp4    <- Svend press
+dumbbell-pullover.mp4    <- Dumbbell pullover
+lat-pulldown.mp4    <- Lat pulldown
+pull-up.mp4    <- Pull-up
+chin-up.mp4    <- Chin-up
+barbell-row.mp4    <- Barbell row
+dumbbell-row.mp4    <- Dumbbell row
+seated-cable-row.mp4    <- Seated cable row
+t-bar-row.mp4    <- T-bar row
+single-arm-cable-row.mp4    <- Single-arm cable row
+straight-arm-pulldown.mp4    <- Straight-arm pulldown
+face-pull.mp4    <- Face pull
+deadlift.mp4    <- Deadlift
+rack-pull.mp4    <- Rack pull
+inverted-row.mp4    <- Inverted row
+back-extension.mp4    <- Back extension
+meadows-row.mp4    <- Meadows row
+back-squat.mp4    <- Back squat
+front-squat.mp4    <- Front squat
+goblet-squat.mp4    <- Goblet squat
+leg-press.mp4    <- Leg press
+lunge.mp4    <- Lunge
+walking-lunge.mp4    <- Walking lunge
+bulgarian-split-squat.mp4    <- Bulgarian split squat
+romanian-deadlift.mp4    <- Romanian deadlift
+leg-extension.mp4    <- Leg extension
+leg-curl.mp4    <- Leg curl
+hip-thrust.mp4    <- Hip thrust
+glute-bridge.mp4    <- Glute bridge
+step-up.mp4    <- Step-up
+calf-raise.mp4    <- Calf raise
+hack-squat.mp4    <- Hack squat
+overhead-press.mp4    <- Overhead press
+dumbbell-shoulder-press.mp4    <- Dumbbell shoulder press
+arnold-press.mp4    <- Arnold press
+lateral-raise.mp4    <- Lateral raise
+front-raise.mp4    <- Front raise
+rear-delt-fly.mp4    <- Rear delt fly
+upright-row.mp4    <- Upright row
+cable-lateral-raise.mp4    <- Cable lateral raise
+machine-shoulder-press.mp4    <- Machine shoulder press
+pike-push-up.mp4    <- Pike push-up
+landmine-press.mp4    <- Landmine press
+shrug.mp4    <- Shrug
+reverse-pec-deck.mp4    <- Reverse pec deck
+handstand-push-up.mp4    <- Handstand push-up
+barbell-curl.mp4    <- Barbell curl
+dumbbell-curl.mp4    <- Dumbbell curl
+hammer-curl.mp4    <- Hammer curl
+preacher-curl.mp4    <- Preacher curl
+concentration-curl.mp4    <- Concentration curl
+cable-curl.mp4    <- Cable curl
+incline-curl.mp4    <- Incline curl
+triceps-pushdown.mp4    <- Triceps pushdown
+overhead-triceps-extension.mp4    <- Overhead triceps extension
+skull-crusher.mp4    <- Skull crusher
+close-grip-bench-press.mp4    <- Close-grip bench press
+triceps-kickback.mp4    <- Triceps kickback
+bench-dip.mp4    <- Bench dip
+reverse-curl.mp4    <- Reverse curl
+wrist-curl.mp4    <- Wrist curl
+plank.mp4    <- Plank
+side-plank.mp4    <- Side plank
+hollow-hold.mp4    <- Hollow hold
+crunch.mp4    <- Crunch
+bicycle-crunch.mp4    <- Bicycle crunch
+hanging-knee-raise.mp4    <- Hanging knee raise
+leg-raise.mp4    <- Leg raise
+russian-twist.mp4    <- Russian twist
+mountain-climber.mp4    <- Mountain climber
+dead-bug.mp4    <- Dead bug
+bird-dog.mp4    <- Bird dog
+ab-wheel-rollout.mp4    <- Ab wheel rollout
+cable-crunch.mp4    <- Cable crunch
+sit-up.mp4    <- Sit-up
+flutter-kick.mp4    <- Flutter kick

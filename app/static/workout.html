@@ -1,0 +1,354 @@
+﻿<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Workout · AI Gym Coach</title></head>
+<body>
+<div id="nav"></div>
+<main class="wrap" style="padding:26px 20px 60px">
+  <a href="/workouts" class="muted">← All workouts</a>
+  <div class="detail">
+    <section>
+      <span class="tag" id="grp"></span>
+      <h1 class="disp" id="title" style="font-size:clamp(48px,7vw,84px);margin:10px 0 18px"></h1>
+      <div class="media">
+        <img id="pic" alt="">
+        <video id="demo" controls playsinline></video>
+        <div id="novid" class="ph">Instructional video coming soon. Add a file named <code id="vpath"></code>.</div>
+      </div>
+      <div class="card" style="margin-top:18px">
+        <h3 style="font-size:28px;margin-bottom:10px">How to do it</h3>
+        <p id="cues" style="margin:0 0 10px"></p>
+        <p class="muted" id="mode" style="margin:0"></p>
+      </div>
+      <div class="card" style="margin-top:18px">
+        <h3 style="font-size:28px">Rate this workout</h3>
+        <div id="stars" class="stars" style="font-size:30px;cursor:pointer"></div>
+        <p class="muted" id="avg"></p>
+        <h3 style="font-size:28px;margin-top:14px">Community tips</h3>
+        <textarea id="note" rows="2" placeholder="Share a form tip…"></textarea>
+        <button class="btn" onclick="addNote()">Post tip</button>
+        <div id="notes" style="margin-top:14px"></div>
+        <p class="muted" style="font-size:12px">Ratings and tips are saved on this device only until the server stores them.</p>
+      </div>
+    </section>
+
+    <aside>
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
+          <h3 style="font-size:28px">Live counter</h3>
+          <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+            <select id="side" style="width:auto;margin:0"><option value="r">Right side</option><option value="l">Left side</option></select>
+            <label style="font-size:13px;color:var(--muted);display:flex;align-items:center;gap:6px"><input id="mirror" type="checkbox" checked style="width:auto;margin:0"> Mirror view</label>
+          </div>
+        </div>
+
+        <div class="media" id="camBox" style="aspect-ratio:4/3;margin-top:12px">
+          <video id="vid" playsinline muted style="position:absolute;width:1px;height:1px;opacity:0;pointer-events:none"></video>
+          <canvas id="cv" width="640" height="480"></canvas>
+        </div>
+
+        <div id="repRow" style="display:flex;align-items:center;justify-content:space-between;margin-top:14px;gap:10px;flex-wrap:wrap">
+          <div><div class="muted">Reps</div><div id="count" class="disp" style="font-size:88px;color:var(--green);line-height:1">0</div></div>
+          <button class="btn" id="camBtn" onclick="camToggle()">Start camera</button>
+        </div>
+
+        <div id="ang" class="muted" style="font-size:13px;margin-top:4px">no person detected</div>
+        <div id="fb" class="muted" style="min-height:48px;margin-top:6px"></div>
+
+        <div id="tapBox" style="display:none"><button class="btn" style="width:100%;font-size:20px" onclick="tap()">+1 rep</button></div>
+
+        <div id="timerBox" style="display:none;margin-top:10px">
+          <div class="disp" id="tim" style="font-size:60px">0s</div>
+          <button class="btn" id="tBtn" onclick="tToggle()">Start</button>
+          <button class="btn ghost" onclick="tReset()">Reset</button>
+        </div>
+
+        <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--line)">
+          <label style="display:block;color:var(--muted);font-size:13px;font-weight:600">Weight used (kg)</label>
+          <input id="wt" type="number" min="0" step="0.5" placeholder="e.g. 60" style="width:100%">
+          <button class="btn" style="width:100%" onclick="saveSet()">Save set</button>
+          <div id="coach" class="muted" style="margin-top:10px;font-size:14px"></div>
+        </div>
+
+        <button class="btn ghost" style="margin-top:12px" onclick="resetCount()">Reset reps</button>
+      </div>
+    </aside>
+  </div>
+</main>
+<div id="footer"></div>
+<div id="toast"></div>
+<script src="/static/common.js?v=2"></script>
+<script src="/static/data.js"></script>
+<script>
+// ---------- helpers (defined first so nothing runs before they exist) ----------
+const setText = (id, t) => { const el = document.getElementById(id); if (el) el.textContent = t; };
+const setHTML = (id, h) => { const el = document.getElementById(id); if (el) el.innerHTML = h; };
+const showEl = (id, on) => { const el = document.getElementById(id); if (el) el.style.display = on ? "" : "none"; };
+
+// ---------- which exercise and which mode ----------
+const qs = new URLSearchParams(location.search);
+const ex = ALL.find(e => e.group === qs.get("g") && e.name === qs.get("e")) || ALL[0];
+const fam = CAM[ex.name] || null;                        // camera settings, or null
+const mode = fam ? "camera" : (ex.fam === "t" ? "timer" : "tap");
+const s = slug(ex.name), revKey = "rev:" + s;
+
+document.title = ex.name + " · AI Gym Coach";
+setText("title", ex.name);
+setText("grp", ex.group);
+setText("cues", CUES[ex.fam] || "");
+setText("mode", "Mode: " + ({ camera: "Auto count", tap: "Tap count", timer: "Timer" })[mode] +
+  (fam ? " · film from the " + fam.view : ""));
+setText("vpath", `app/static/videos/${s}.mp4`);
+
+// Photo and video (both optional)
+const pic = document.getElementById("pic");
+pic.src = `/static/images/${s}.jpg`;
+pic.onerror = () => pic.remove();
+const demo = document.getElementById("demo");
+demo.src = `/static/videos/${s}.mp4`;
+demo.onerror = () => { demo.style.display = "none"; showEl("novid", true); };
+
+// Layout per mode
+showEl("camBox", mode === "camera");
+showEl("ang", mode === "camera");
+showEl("camBtn", mode === "camera");
+showEl("tapBox", mode === "tap");
+showEl("timerBox", mode === "timer");
+showEl("repRow", mode !== "timer");
+setText("fb", mode === "camera" ? "Press Start camera, then do full reps."
+            : mode === "tap" ? "Tap once for each rep."
+            : "Use the timer to hold the position.");
+
+// ---------- geometry and rep counting (same rules as app/reps.py) ----------
+const LMI = { l_shoulder: 11, r_shoulder: 12, l_elbow: 13, r_elbow: 14, l_wrist: 15, r_wrist: 16,
+              l_hip: 23, r_hip: 24, l_knee: 25, r_knee: 26, l_ankle: 27, r_ankle: 28 };
+const MP = "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14";
+const MODEL = "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_full/float16/latest/pose_landmarker_full.task";
+
+function angleAt(a, b, c) {
+  const ax = a[0] - b[0], ay = a[1] - b[1], cx = c[0] - b[0], cy = c[1] - b[1];
+  const cos = Math.min(1, Math.max(-1, (ax * cx + ay * cy) / (Math.hypot(ax, ay) * Math.hypot(cx, cy) + 1e-9)));
+  return Math.acos(cos) * 180 / Math.PI;
+}
+function drivingAngle(f, side) {
+  const [a, b, c] = fam.j.map(j => f[side + "_" + j]);
+  const x = angleAt(a, b, c);
+  return fam.inv ? 180 - x : x;
+}
+function scoreRep(min, tempo, lean) {
+  const flags = []; let p = 0;
+  if (min > fam.depth) { flags.push("incomplete_depth"); p += 25; }
+  if (fam.lean && Math.max(...lean) > 45) { flags.push("excess_forward_lean"); p += 20; }
+  if (tempo < 0.8) { flags.push("too_fast"); p += 10; }
+  return { score: Math.max(0, 100 - p), flags, tempo };
+}
+class Counter {
+  constructor(f) { this.f = f; this.buf = []; this.st = "top"; this.lo = 1e9; this.t0 = null; this.lean = []; this.reps = []; }
+  push(a, l, t) {
+    this.buf.push(a); if (this.buf.length > 5) this.buf.shift();
+    const v = this.buf.reduce((x, y) => x + y, 0) / this.buf.length, f = this.f;
+    if (this.st === "top") {
+      if (v > f.high) { this.t0 = t; this.lean = [l]; }
+      else if (v < f.low) { this.st = "bottom"; this.lo = v; if (this.t0 === null) this.t0 = t; this.lean.push(l); }
+      return null;
+    }
+    this.lean.push(l); this.lo = Math.min(this.lo, v);
+    if (v > f.high) {
+      const r = scoreRep(this.lo, t - this.t0, this.lean);
+      this.reps.push(r); this.st = "top"; this.lo = 1e9; this.lean = [];
+      return r;
+    }
+    return null;
+  }
+}
+
+// Created after the class, so it can't hit the "before initialization" error
+let counter = mode === "camera" ? new Counter(fam) : null;
+let manual = 0;
+
+// ---------- reps, tap and timer ----------
+function resetCount() {
+  if (counter) counter = new Counter(fam);
+  manual = 0;
+  setText("count", "0");
+  setText("fb", mode === "camera" ? "Counting reset." : "");
+}
+function tap() { manual++; setText("count", manual); }
+
+let tSec = 0, tInt = null;
+function tToggle() {
+  if (tInt) { clearInterval(tInt); tInt = null; setText("tBtn", "Start"); return; }
+  const t0 = Date.now() - tSec * 1000;
+  tInt = setInterval(() => { tSec = Math.floor((Date.now() - t0) / 1000); setText("tim", tSec + "s"); }, 250);
+  setText("tBtn", "Pause");
+}
+function tReset() { clearInterval(tInt); tInt = null; tSec = 0; setText("tim", "0s"); setText("tBtn", "Start"); }
+
+// ---------- camera ----------
+let lm = null, stream = null, running = false, lastTs = -1;
+
+async function loadModel() {
+  if (lm) return;
+  const mod = await import(MP);
+  const fs = await mod.FilesetResolver.forVisionTasks(MP + "/wasm");
+  const o = d => ({ baseOptions: { modelAssetPath: MODEL, delegate: d }, runningMode: "VIDEO", numPoses: 1,
+    minPoseDetectionConfidence: 0.3, minPosePresenceConfidence: 0.3, minTrackingConfidence: 0.3 });
+  lm = await mod.PoseLandmarker.createFromOptions(fs, o("GPU"))
+        .catch(() => mod.PoseLandmarker.createFromOptions(fs, o("CPU")));
+}
+
+async function openCamera() {
+  const attempts = [
+    { video: { width: 640, height: 480 }, audio: false },
+    { video: true, audio: false }
+  ];
+  let err = null;
+  for (const c of attempts) {
+    try { return await navigator.mediaDevices.getUserMedia(c); }
+    catch (e) { err = e; if (e.name === "NotAllowedError") break; }
+  }
+  const msg = {
+    NotAllowedError: "Camera access was blocked. Click the camera icon in the address bar and allow it.",
+    NotFoundError: "No camera was found on this device.",
+    NotReadableError: "The camera is in use by another app. Close Teams, Zoom, or Camera, then try again.",
+    OverconstrainedError: "This camera can't provide that video size. Try another camera."
+  }[err.name] || err.message;
+  throw new Error(msg);
+}
+
+function stopCamera() {
+  running = false;
+  if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
+  setText("camBtn", "Start camera");
+}
+
+async function camToggle() {
+  if (running) return stopCamera();
+  const btn = document.getElementById("camBtn");
+  btn.disabled = true;
+  setText("fb", "Loading pose model…");
+  try {
+    await loadModel();
+    stream = await openCamera();
+    const v = document.getElementById("vid");
+    v.srcObject = stream;
+    await v.play();
+    const c = document.getElementById("cv");
+    c.width = v.videoWidth; c.height = v.videoHeight;
+    running = true;
+    setText("camBtn", "Stop camera");
+    setText("fb", "Counting. Do full reps.");
+    requestAnimationFrame(frame);
+  } catch (e) {
+    setText("fb", "Could not start camera: " + e.message);
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+function frame() {
+  if (!running) return;
+  requestAnimationFrame(frame);                 // schedule first so an error can't stop the loop
+  const v = document.getElementById("vid"), c = document.getElementById("cv");
+  if (!v || !c || v.readyState < 2 || !lm) return;
+  const x = c.getContext("2d");
+  const mirror = document.getElementById("mirror").checked;
+  const X = px => mirror ? c.width - px : px;   // flips x for the overlay only
+
+  // draw the camera picture, flipped when mirror view is on
+  x.save();
+  if (mirror) { x.translate(c.width, 0); x.scale(-1, 1); }
+  x.drawImage(v, 0, 0, c.width, c.height);
+  x.restore();
+
+  try {
+    let ts = Math.round(performance.now());
+    if (ts <= lastTs) ts = lastTs + 1;
+    lastTs = ts;
+    const res = lm.detectForVideo(v, ts);
+    const side = document.getElementById("side").value;
+    if (res.landmarks && res.landmarks[0]) {
+      const L = res.landmarks[0], f = {};
+      for (const k in LMI) f[k] = [L[LMI[k]].x * c.width, L[LMI[k]].y * c.height];
+      const a = drivingAngle(f, side);
+      const pts = fam.j.map(j => f[side + "_" + j]);
+      x.strokeStyle = "#22d37a"; x.lineWidth = 6; x.beginPath();
+      pts.forEach((p, i) => i ? x.lineTo(X(p[0]), p[1]) : x.moveTo(X(p[0]), p[1]));
+      x.stroke();
+      const sh = f[side + "_shoulder"], hp = f[side + "_hip"];
+      const lean = Math.atan2(Math.abs(sh[0] - hp[0]), -(sh[1] - hp[1])) * 180 / Math.PI;
+      setText("ang", `angle ${a.toFixed(0)}°`);
+      const done = counter.push(a, lean, ts / 1000);
+      if (done) {
+        const n = counter.reps.length;
+        setText("count", n);
+        setHTML("fb", `Rep ${n}: <b>${done.score}/100</b><br>` + (done.flags.length
+          ? done.flags.map(f2 => `<span style="display:inline-block;margin:4px 4px 0 0;padding:3px 9px;border-radius:999px;background:#3a2022;color:#ffd0d0;font-size:12px">${f2.replace(/_/g, " ")}</span>`).join(" ")
+          : `<span style="display:inline-block;padding:3px 9px;border-radius:999px;background:#16382a;color:#c7f5df;font-size:12px">good form</span>`));
+      }
+    } else {
+      setText("ang", "no person detected");
+    }
+  } catch (e) {
+    setText("fb", "Camera error: " + e.message);
+    console.error(e);
+  }
+}
+
+window.addEventListener("pagehide", stopCamera);
+
+// ---------- save a set to the server ----------
+async function saveSet() {
+  if (mode === "timer") return toast("Timer holds aren't saved as reps yet", false);
+  const reps = mode === "camera" ? counter.reps.length : manual;
+  if (!reps) return toast("No reps to save yet", false);
+  const flags = mode === "camera" ? [...new Set(counter.reps.flatMap(r => r.flags))] : [];
+  const form = mode === "camera" && counter.reps.length
+    ? Math.round(counter.reps.reduce((acc, r) => acc + r.score, 0) / counter.reps.length) : 100;
+  const body = {
+    day: new Date().toLocaleDateString("en-CA"),
+    exercise: ex.name,
+    weight: Number(document.getElementById("wt").value) || 0,
+    reps, form_score: form, flags,
+    source: mode === "camera" ? "camera" : "manual"
+  };
+  try {
+    const r = await fetch("/api/sets", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "same-origin",
+      body: JSON.stringify(body)
+    });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(d.detail || "Could not save the set");
+    const c = d.coaching || { summary: "Set saved.", items: [] };
+    setHTML("coach", `<b>${esc(c.summary)}</b>` + c.items.map(i =>
+      `<div style="margin-top:8px"><b>${esc(i.issue)}:</b> ${esc(i.fix)}<div class="muted">Drill: ${esc(i.drill)}</div></div>`).join(""));
+    toast("Set saved");
+    resetCount();
+  } catch (e) {
+    toast(e.message, false);
+  }
+}
+
+// ---------- ratings and tips (saved on this device) ----------
+const loadRev = () => JSON.parse(localStorage.getItem(revKey) || '{"mine":0,"notes":[]}');
+const saveRev = r => localStorage.setItem(revKey, JSON.stringify(r));
+function rate(n) { const r = loadRev(); r.mine = n; saveRev(r); drawRev(); toast("Thanks for rating!"); }
+function addNote() {
+  const t = document.getElementById("note").value.trim(); if (!t) return;
+  const r = loadRev(); r.notes.unshift({ t, when: new Date().toLocaleDateString() });
+  saveRev(r); document.getElementById("note").value = ""; drawRev();
+}
+function drawRev() {
+  const r = loadRev();
+  setHTML("stars", [1, 2, 3, 4, 5].map(i => `<span onclick="rate(${i})">${i <= r.mine ? "★" : "☆"}</span>`).join(""));
+  setText("avg", r.mine ? `You rated this ${r.mine}/5` : "Tap a star to rate this workout.");
+  setHTML("notes", r.notes.map(n => `<div style="border-top:1px solid var(--line);padding:10px 0">
+    <span class="muted" style="font-size:12px">${n.when}</span><div>${esc(n.t)}</div></div>`).join("")
+    || '<p class="muted">No tips yet. Be the first.</p>');
+}
+drawRev();
+</script>
+</body>
+</html>
+

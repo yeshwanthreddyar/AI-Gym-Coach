@@ -1,0 +1,55 @@
+﻿<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Log in · AI Gym Coach</title></head>
+<body>
+<div id="nav"></div>
+<main class="wrap" style="display:flex;justify-content:center;padding:60px 20px">
+  <div class="card" style="width:min(440px,100%)">
+    <h1 class="disp" style="font-size:52px">Welcome back</h1>
+    <p class="muted">Log in with your username or email.</p>
+    <label>Username or email</label>
+    <input id="identifier" autocomplete="username" placeholder="alex_lifts or you@example.com">
+    <label>Password</label>
+    <input id="password" type="password" autocomplete="current-password">
+    <button id="submit" class="btn" style="width:100%" onclick="login()">Log in</button>
+    <p id="msg" style="color:#ffb3a3;min-height:22px;margin:10px 0 0"></p>
+    <p class="muted" style="text-align:center;margin-top:16px">New here? <a href="/register" style="color:var(--green);font-weight:700">Create an account</a></p>
+  </div>
+</main>
+<div id="footer"></div>
+<div id="toast"></div>
+<script src="/static/common.js?v=2"></script>
+<script>
+function nextUrl() {
+  const n = new URLSearchParams(location.search).get("next") || "/profile";
+  return n.startsWith("/") && !n.startsWith("//") ? n : "/profile";
+}
+
+async function login() {
+  $("msg").textContent = "";
+  if (!$("identifier").value.trim() || !$("password").value) {
+    $("msg").textContent = "Enter your username or email and password.";
+    return;
+  }
+  $("submit").disabled = true;
+  try {
+    const r = await fetch("/auth/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ identifier: $("identifier").value.trim(), password: $("password").value })
+    });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(d.detail || "Could not log in.");
+    toast(`Welcome back, ${d.username}!`);
+    setTimeout(() => (location.href = nextUrl()), 700);
+  } catch (e) {
+    $("msg").textContent = e.message;
+    $("submit").disabled = false;
+  }
+}
+
+$("password").addEventListener("keydown", e => { if (e.key === "Enter") login(); });
+</script>
+</body>
+</html>
+

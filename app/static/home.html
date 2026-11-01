@@ -1,0 +1,73 @@
+﻿<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>AI Gym Coach</title></head>
+<body>
+<div id="nav"></div>
+
+<header class="hero" style="--hero:url('/static/images/hero.jpg')">
+  <div class="wrap">
+    <p style="color:var(--green);font-weight:700;letter-spacing:2px;margin:0">MOVE. COUNT. IMPROVE.</p>
+    <h1 class="disp">Train hard.<br><span>Count every rep.</span></h1>
+    <p style="max-width:520px;font-size:19px;color:#c6ccd9">Pick a lift, let the camera count your reps, and see your form score as you go. Works on phone, tablet, and laptop.</p>
+    <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:26px">
+      <a class="btn" href="/start">Start Your Journey →</a>
+      <a class="btn ghost" href="/login">Track Your Progress</a>
+      <a class="btn ghost" href="/diet">My diet plan</a>
+    </div>
+  </div>
+</header>
+
+<section class="block"><div class="wrap">
+  <div class="sec-h"><div><h2 class="disp">Popular workouts</h2><p class="muted" style="margin:6px 0 0">What most people start with.</p></div><a href="/workouts" class="muted">See all 90 →</a></div>
+  <div class="grid" id="popular"></div>
+</div></section>
+
+<section class="block" style="background:#0e1219"><div class="wrap">
+  <div class="sec-h"><div><h2 class="disp">Featured this week</h2><p class="muted" style="margin:6px 0 0">Form cues from the coach.</p></div></div>
+  <div class="grid" id="featured"></div>
+</div></section>
+
+<section class="block"><div class="wrap">
+  <div class="sec-h"><div><h2 class="disp">Eat, train, track</h2><p class="muted" style="margin:6px 0 0">Your diet, daily check-in and progress in one place.</p></div></div>
+  <div class="grid">
+    <a class="card" href="/diet"><div class="disp" style="font-size:44px;color:var(--green)">01</div><h3 style="font-size:26px;margin:8px 0">My diet plan</h3><p class="muted">Calories, protein, allergy checks, a daily food log and a suggested day plan.</p><span style="color:var(--green);font-weight:700">Open diet →</span></a>
+    <a class="card" href="/tracker"><div class="disp" style="font-size:44px;color:var(--orange)">02</div><h3 style="font-size:26px;margin:8px 0">Daily check-in</h3><p class="muted">Check in each day to build your streak, and see reps per muscle group.</p><span style="color:var(--orange);font-weight:700">Open progress →</span></a>
+    <a class="card" href="/workouts"><div class="disp" style="font-size:44px;color:var(--blue)">03</div><h3 style="font-size:26px;margin:8px 0">Workouts</h3><p class="muted">Pick a lift and let the camera count your reps.</p><span style="color:var(--blue);font-weight:700">Start training →</span></a>
+  </div>
+</div></section>
+
+<section class="block"><div class="wrap">
+  <h2 class="disp" style="margin-bottom:26px">How it works</h2>
+  <div class="grid">
+    <div class="card"><div class="disp" style="font-size:44px;color:var(--orange)">01</div><h3 style="font-size:26px;margin:8px 0">Pick a lift</h3><p class="muted">Six muscle groups with 15 exercises each.</p></div>
+    <div class="card"><div class="disp" style="font-size:44px;color:var(--green)">02</div><h3 style="font-size:26px;margin:8px 0">Start the counter</h3><p class="muted">The camera counts reps and scores form. Tap-count and timer lifts work without a camera.</p></div>
+    <div class="card"><div class="disp" style="font-size:44px;color:var(--blue)">03</div><h3 style="font-size:26px;margin:8px 0">Get better</h3><p class="muted">Check your form flags, rate workouts, and share tips with the community.</p></div>
+  </div>
+</div></section>
+
+<section class="block" style="background:#0e1219"><div class="wrap">
+  <h2 class="disp" style="margin-bottom:6px">What lifters say</h2>
+  <p class="muted" style="margin-bottom:26px">Sample testimonials. Replace these with real reviews before launch.</p>
+  <div class="grid" id="reviews"></div>
+</div></section>
+
+<div id="footer"></div>
+<div id="toast"></div>
+<script src="/static/common.js?v=2"></script>
+<script src="/static/data.js"></script>
+<script>
+const pick = names => names.map(n => ALL.find(e => e.name === n)).filter(Boolean);
+$("popular").innerHTML = pick(["Bench press", "Back squat", "Deadlift", "Pull-up", "Overhead press", "Plank"]).map(tileHTML).join("");
+$("featured").innerHTML = pick(["Romanian deadlift", "Lat pulldown", "Lateral raise"]).map(tileHTML).join("");
+const REVIEWS = [
+  { name: "Sample lifter A", goal: "Build strength", text: "The form cues helped me get deeper squats within a few weeks." },
+  { name: "Sample lifter B", goal: "Lose fat", text: "Tap counting for my core work keeps me honest between sets." },
+  { name: "Sample lifter C", goal: "Return to training", text: "Simple to use on my phone, and the workout pages are clear." }
+];
+$("reviews").innerHTML = REVIEWS.map(r => `<div class="card"><div class="stars">★★★★★</div>
+  <p>“${esc(r.text)}”</p><p class="muted" style="margin:0"><b style="color:var(--text)">${esc(r.name)}</b> · ${esc(r.goal)}</p></div>`).join("");
+</script>
+</body>
+</html>
+
+

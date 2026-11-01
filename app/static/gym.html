@@ -1,0 +1,386 @@
+﻿<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AI Gym Coach</title>
+<style>
+:root{--bg:#0b0d12;--card:#151922;--line:#232938;--text:#f2f4f8;--muted:#8d96ab;--lime:#c6ff3d;--grad:linear-gradient(120deg,#ff5c35,#ffb020 50%,#c6ff3d)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:15px/1.5 system-ui,Segoe UI,Roboto,sans-serif}
+.disp{font-family:Impact,"Arial Black",sans-serif;text-transform:uppercase;letter-spacing:.5px;margin:0}
+.muted{color:var(--muted)}
+nav{position:sticky;top:0;z-index:20;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:14px 28px;background:rgba(11,13,18,.88);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+.logo{font-size:24px;background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+.btn{display:inline-block;padding:11px 18px;border-radius:10px;border:0;font:600 14px system-ui;cursor:pointer;background:var(--grad);color:#120c06;text-decoration:none}
+.btn.ghost{background:transparent;color:var(--text);border:1px solid var(--line)}
+.btn:disabled{opacity:.5;cursor:default}
+.chip{color:var(--muted);font-size:13px;margin-right:10px}
+.hero{position:relative;overflow:hidden;padding:110px 28px 90px;background:radial-gradient(900px 500px at 80% -10%,rgba(255,92,53,.35),transparent 60%),radial-gradient(700px 400px at -10% 110%,rgba(198,255,61,.22),transparent 60%),#0b0d12}
+.hero h1{font-size:clamp(56px,11vw,140px);line-height:.88;margin:0 0 18px}
+.hero h1 span{background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+.hero p{max-width:520px;color:#c9cfdd;font-size:18px}
+.ghostword{position:absolute;right:-20px;bottom:-30px;font-size:260px;color:transparent;-webkit-text-stroke:1px #2a3140;pointer-events:none;white-space:nowrap}
+.stats{display:flex;gap:26px;margin-top:34px;flex-wrap:wrap}
+.stats b{display:block;font-size:34px;color:var(--lime)}
+.section{padding:44px 28px}
+.tabs{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:22px}
+.tab{padding:10px 18px;border-radius:999px;border:1px solid var(--line);background:var(--card);color:var(--text);cursor:pointer;font:600 14px system-ui}
+.tab.on{background:var(--grad);color:#120c06;border-color:transparent}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:16px}
+.ex{position:relative;aspect-ratio:4/5;border-radius:18px;overflow:hidden;cursor:pointer;background:linear-gradient(165deg,var(--c),#0b0d12 80%);border:1px solid var(--line);transition:transform .2s,box-shadow .2s;padding:14px;display:flex;flex-direction:column;justify-content:space-between}
+.ex:hover{transform:translateY(-4px);box-shadow:0 14px 30px rgba(0,0,0,.45)}
+.ex img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:.85}
+.ex::after{content:"";position:absolute;inset:0;background:linear-gradient(transparent 35%,rgba(0,0,0,.85))}
+.ex>*:not(img){position:relative;z-index:1}
+.tag{align-self:flex-start;display:inline-block;font-size:11px;font-weight:700;padding:4px 9px;border-radius:999px;background:rgba(0,0,0,.55);text-transform:uppercase;letter-spacing:.5px}
+.ex h3{margin:0 0 4px;font-size:22px;line-height:1.05}
+.ex .go{font-size:13px;color:var(--lime);font-weight:600}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.72);display:none;align-items:center;justify-content:center;z-index:50;padding:16px}
+.modal.open{display:flex}
+.box{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:22px;width:min(900px,100%);max-height:92vh;overflow:auto}
+.box.sm{width:min(420px,100%)}
+.row{display:flex;gap:20px;flex-wrap:wrap;margin-top:14px}
+.row>div{flex:1;min-width:260px}
+input,select{width:100%;padding:11px 12px;border-radius:10px;border:1px solid var(--line);background:#0e1117;color:var(--text);font:inherit;margin:6px 0 14px}
+.l{color:var(--muted);font-size:13px}
+.stage{position:relative;aspect-ratio:4/3;background:#000;border-radius:14px;overflow:hidden}
+.stage canvas{width:100%;height:100%;display:block}
+.big{font:700 96px Impact,sans-serif;color:var(--lime);line-height:1}
+.msg{min-height:20px;color:#ffb3a3;font-size:14px;margin-top:8px}
+.flag{display:inline-block;padding:3px 9px;border-radius:999px;background:#3a2022;color:#ffd0d0;font-size:12px;margin:2px 2px 0 0}
+.flag.ok{background:#16382a;color:#c7f5df}
+#toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);display:none;background:#222838;padding:10px 16px;border-radius:10px;z-index:99}
+</style>
+</head>
+<body>
+<nav>
+  <div class="logo disp">AI Gym Coach</div>
+  <div>
+    <span class="chip" id="chip"></span>
+    <button class="btn ghost" id="loginBtn" onclick="openAuth('login')">Log in</button>
+    <button class="btn" id="signupBtn" onclick="openAuth('register')">Sign up</button>
+    <button class="btn ghost" id="logoutBtn" onclick="logout()" style="display:none">Log out</button>
+  </div>
+</nav>
+
+<header class="hero">
+  <h1 class="disp">Train hard.<br><span>Count every rep.</span></h1>
+  <p>Pick a muscle group, open any lift, and let the camera count your reps and score your form. No guessing, no notebook.</p>
+  <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:24px">
+    <a class="btn" href="#train">Start training</a>
+    <button class="btn ghost" onclick="openAuth('register')">Create account</button>
+  </div>
+  <div class="stats">
+    <div><b class="disp">90</b>exercises</div>
+    <div><b class="disp">6</b>muscle groups</div>
+    <div><b class="disp">Live</b>rep counting</div>
+  </div>
+  <div class="ghostword disp">No excuses</div>
+</header>
+
+<section class="section" id="train">
+  <h2 class="disp" style="font-size:40px;margin:0 0 18px">Choose your <span style="color:var(--lime)">muscle group</span></h2>
+  <div class="tabs" id="tabs"></div>
+  <div class="grid" id="grid"></div>
+</section>
+
+<div class="modal" id="authModal" onclick="if(event.target===this)closeAuth()">
+  <div class="box sm">
+    <div class="tabs">
+      <button class="tab on" id="tLogin" onclick="showTab('login')">Log in</button>
+      <button class="tab" id="tReg" onclick="showTab('register')">Create account</button>
+    </div>
+    <div id="loginForm">
+      <h2 class="disp" style="margin:0 0 6px">Welcome back</h2>
+      <p class="muted">Enter your profile ID.</p>
+      <label class="l">Profile ID</label><input id="logId" type="number" min="1">
+      <button class="btn" style="width:100%" onclick="login()">Log in</button>
+    </div>
+    <div id="regForm" style="display:none">
+      <h2 class="disp" style="margin:0 0 6px">Join the gym</h2>
+      <p class="muted">Takes 10 seconds. You get a profile ID.</p>
+      <label class="l">Your name</label><input id="regName" placeholder="e.g. Alex">
+      <button class="btn" style="width:100%" onclick="register()">Create account</button>
+    </div>
+    <div class="msg" id="authMsg"></div>
+  </div>
+</div>
+
+<div class="modal" id="exModal" onclick="if(event.target===this)closeEx()">
+  <div class="box">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px">
+      <div><span class="tag" id="exMode"></span><h2 class="disp" id="exName" style="margin-top:8px;font-size:34px"></h2></div>
+      <button class="btn ghost" onclick="closeEx()">Close</button>
+    </div>
+    <div class="row">
+      <div>
+        <div id="camPanel">
+          <div class="stage"><video id="vid" playsinline muted style="display:none"></video><canvas id="cv" width="640" height="480"></canvas></div>
+          <div style="display:flex;gap:10px;margin-top:12px;flex-wrap:wrap;align-items:center">
+            <button class="btn" id="camBtn" onclick="camStart()">Start camera</button>
+            <select id="side" style="width:auto;margin:0"><option value="r">Right side</option><option value="l">Left side</option></select>
+            <span class="muted" id="ang"></span>
+          </div>
+          <p class="muted" style="font-size:13px">Film side-on with your whole body visible. Front-on for raises.</p>
+        </div>
+        <div id="manualPanel" style="display:none">
+          <button class="btn" style="font-size:20px;padding:20px 30px" onclick="tap()">+1 rep</button>
+          <p class="muted">This lift can't be tracked from the camera, so tap once per rep.</p>
+        </div>
+        <div id="timerPanel" style="display:none">
+          <div class="big disp" id="tim">0s</div>
+          <button class="btn" id="tBtn" onclick="timerToggle()">Start</button>
+          <button class="btn ghost" onclick="timerReset()">Reset</button>
+        </div>
+      </div>
+      <div style="max-width:280px">
+        <div id="countBox"><div class="l">Reps</div><div class="big disp" id="count">0</div></div>
+        <div id="fb" class="muted" style="min-height:44px;margin-top:8px"></div>
+        <button class="btn ghost" style="margin-top:14px" onclick="resetCount()">Reset reps</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+const $ = id => document.getElementById(id);
+
+// name:family. Families: sq squat, hg hinge, cr crunch, pu push, pl pull, cu curl, ra raise,
+// m tap count (no camera angle), t timer (holds).
+const DATA = {
+  Chest: "Bench press:pu,Incline bench press:pu,Decline bench press:pu,Dumbbell fly:ra,Incline dumbbell fly:ra,Cable crossover:ra,Push-up:pu,Wide push-up:pu,Diamond push-up:pu,Decline push-up:pu,Dips:pu,Pec deck:ra,Machine chest press:pu,Svend press:m,Dumbbell pullover:m",
+  Back: "Lat pulldown:pl,Pull-up:pl,Chin-up:pl,Barbell row:pl,Dumbbell row:pl,Seated cable row:pl,T-bar row:pl,Single-arm cable row:pl,Straight-arm pulldown:ra,Face pull:pl,Deadlift:hg,Rack pull:hg,Inverted row:pl,Back extension:hg,Meadows row:pl",
+  Legs: "Back squat:sq,Front squat:sq,Goblet squat:sq,Leg press:sq,Lunge:sq,Walking lunge:sq,Bulgarian split squat:sq,Romanian deadlift:hg,Leg extension:sq,Leg curl:sq,Hip thrust:hg,Glute bridge:hg,Step-up:sq,Calf raise:m,Hack squat:sq",
+  Shoulders: "Overhead press:pu,Dumbbell shoulder press:pu,Arnold press:pu,Lateral raise:ra,Front raise:ra,Rear delt fly:ra,Upright row:pl,Cable lateral raise:ra,Face pull:pl,Machine shoulder press:pu,Pike push-up:pu,Landmine press:pu,Shrug:m,Reverse pec deck:ra,Handstand push-up:pu",
+  Arms: "Barbell curl:cu,Dumbbell curl:cu,Hammer curl:cu,Preacher curl:cu,Concentration curl:cu,Cable curl:cu,Incline curl:cu,Triceps pushdown:pu,Overhead triceps extension:pu,Skull crusher:pu,Close-grip bench press:pu,Triceps kickback:pu,Bench dip:pu,Reverse curl:cu,Wrist curl:m",
+  Core: "Plank:t,Side plank:t,Hollow hold:t,Crunch:cr,Bicycle crunch:m,Hanging knee raise:cr,Leg raise:cr,Russian twist:m,Mountain climber:m,Dead bug:m,Bird dog:m,Ab wheel rollout:m,Cable crunch:cr,Sit-up:cr,Flutter kick:m"
+};
+const GROUPS = {};
+for (const g in DATA) GROUPS[g] = DATA[g].split(",").map(s => { const i = s.lastIndexOf(":"); return { n: s.slice(0, i), f: s.slice(i + 1) }; });
+const COLORS = { Chest:"#ff5c35", Back:"#3d9bff", Legs:"#c6ff3d", Shoulders:"#ffb020", Arms:"#ff3dbb", Core:"#3ddc97" };
+
+// Optional photos: IMG["Bench press"] = "/static/images/bench-press.jpg"
+const IMG = {};
+
+// Joint presets for camera counting. These are starting values, not calibrated per person.
+const FAM = {
+  sq: { j:["hip","knee","ankle"], low:110, high:160, depth:100, lean:true },
+  hg: { j:["shoulder","hip","knee"], low:120, high:165, depth:110 },
+  cr: { j:["shoulder","hip","knee"], low:110, high:155, depth:100 },
+  pu: { j:["shoulder","elbow","wrist"], low:90, high:155, depth:90 },
+  pl: { j:["shoulder","elbow","wrist"], low:90, high:155, depth:90 },
+  cu: { j:["shoulder","elbow","wrist"], low:70, high:150, depth:60 },
+  ra: { j:["hip","shoulder","elbow"], low:130, high:155, depth:100, inv:true }
+};
+const LMI = {l_shoulder:11,r_shoulder:12,l_elbow:13,r_elbow:14,l_wrist:15,r_wrist:16,l_hip:23,r_hip:24,l_knee:25,r_knee:26,l_ankle:27,r_ankle:28};
+const MP = "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14";
+const MODEL = "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_full/float16/latest/pose_landmarker_full.task";
+
+let curGroup = "Chest", cur = null, counter = null, manual = 0, lm = null, stream = null, running = false, lastTs = -1, tSec = 0, tInt = null;
+let uid = Number(localStorage.getItem("gym_uid")) || null;
+let uname = localStorage.getItem("gym_name") || "";
+
+function toast(m) { const t = $("toast"); t.textContent = m; t.style.display = "block"; clearTimeout(t._h); t._h = setTimeout(() => t.style.display = "none", 2600); }
+
+// ---------- auth ----------
+function renderUser() {
+  $("chip").textContent = uid ? `${uname || "Athlete"} · #${uid}` : "";
+  $("loginBtn").style.display = uid ? "none" : "";
+  $("signupBtn").style.display = uid ? "none" : "";
+  $("logoutBtn").style.display = uid ? "" : "none";
+}
+function setSession(id, name) {
+  uid = id; uname = name;
+  localStorage.setItem("gym_uid", id); localStorage.setItem("gym_name", name);
+  renderUser();
+}
+function logout() {
+  uid = null; uname = "";
+  localStorage.removeItem("gym_uid"); localStorage.removeItem("gym_name");
+  renderUser(); toast("Logged out");
+}
+function openAuth(t) { $("authModal").classList.add("open"); showTab(t); $("authMsg").textContent = ""; }
+function closeAuth() { $("authModal").classList.remove("open"); }
+function showTab(t) {
+  const reg = t === "register";
+  $("loginForm").style.display = reg ? "none" : "";
+  $("regForm").style.display = reg ? "" : "none";
+  $("tLogin").classList.toggle("on", !reg); $("tReg").classList.toggle("on", reg);
+}
+async function register() {
+  const name = $("regName").value.trim();
+  if (!name) { $("authMsg").textContent = "Enter your name."; return; }
+  try {
+    const r = await fetch("/users", { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name, equipment: ["barbell", "dumbbell", "machine", "bodyweight"] }) });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.detail || "Could not create account");
+    setSession(d.id, name); closeAuth(); toast(`Welcome, ${name}!`);
+  } catch (e) { $("authMsg").textContent = e.message; }
+}
+async function login() {
+  const id = Number($("logId").value);
+  if (!id) { $("authMsg").textContent = "Enter your profile ID."; return; }
+  const r = await fetch(`/users/${id}/readiness`);
+  if (r.status === 404) { $("authMsg").textContent = "No profile with that ID."; return; }
+  setSession(id, ""); closeAuth(); toast("Logged in");
+}
+
+// ---------- exercise grid ----------
+function showGroup(g) {
+  curGroup = g;
+  document.querySelectorAll(".tab[data-g]").forEach(b => b.classList.toggle("on", b.dataset.g === g));
+  $("grid").innerHTML = GROUPS[g].map((e, i) => {
+    const mode = e.f === "t" ? "Timer" : e.f === "m" ? "Tap count" : "Auto count";
+    const img = IMG[e.n] ? `<img src="${IMG[e.n]}" alt="${e.n}">` : "";
+    return `<div class="ex" data-i="${i}" style="--c:${COLORS[g]}">${img}<span class="tag">${mode}</span>
+      <div><h3 class="disp">${e.n}</h3><span class="go">Open counter →</span></div></div>`;
+  }).join("");
+}
+$("tabs").innerHTML = Object.keys(GROUPS).map(g => `<button class="tab" data-g="${g}">${g}</button>`).join("");
+$("tabs").onclick = e => { const b = e.target.closest("[data-g]"); if (b) showGroup(b.dataset.g); };
+$("grid").onclick = e => { const c = e.target.closest(".ex"); if (c) openEx(Number(c.dataset.i)); };
+
+// ---------- geometry and scoring (same rules as app/biomech.py and app/reps.py) ----------
+function angleAt(a, b, c) {
+  const ax = a[0] - b[0], ay = a[1] - b[1], cx = c[0] - b[0], cy = c[1] - b[1];
+  const cos = Math.min(1, Math.max(-1, (ax * cx + ay * cy) / (Math.hypot(ax, ay) * Math.hypot(cx, cy) + 1e-9)));
+  return Math.acos(cos) * 180 / Math.PI;
+}
+function drivingAngle(f, side, fam) {
+  const [a, b, c] = fam.j.map(j => f[side + "_" + j]);
+  const x = angleAt(a, b, c);
+  return fam.inv ? 180 - x : x;
+}
+function leanOf(f, side) {
+  const s = f[side + "_shoulder"], h = f[side + "_hip"];
+  return Math.atan2(Math.abs(s[0] - h[0]), -(s[1] - h[1])) * 180 / Math.PI;
+}
+function scoreRep(min, tempo, fam, lean) {
+  const flags = []; let p = 0;
+  if (min > fam.depth) { flags.push("incomplete_depth"); p += 25; }
+  if (fam.lean && Math.max(...lean) > 45) { flags.push("excess_forward_lean"); p += 20; }
+  if (tempo < 0.8) { flags.push("too_fast"); p += 10; }
+  return { score: Math.max(0, 100 - p), flags, tempo };
+}
+class Counter {
+  constructor(fam) { this.fam = fam; this.buf = []; this.st = "top"; this.lo = 1e9; this.t0 = null; this.lean = []; this.reps = []; }
+  push(a, l, t) {
+    this.buf.push(a); if (this.buf.length > 5) this.buf.shift();
+    const v = this.buf.reduce((s, x) => s + x, 0) / this.buf.length, f = this.fam;
+    if (this.st === "top") {
+      if (v > f.high) { this.t0 = t; this.lean = [l]; }
+      else if (v < f.low) { this.st = "bottom"; this.lo = v; if (this.t0 === null) this.t0 = t; this.lean.push(l); }
+      return null;
+    }
+    this.lean.push(l); this.lo = Math.min(this.lo, v);
+    if (v > f.high) {
+      const r = scoreRep(this.lo, t - this.t0, f, this.lean);
+      this.reps.push(r); this.st = "top"; this.lo = 1e9; this.lean = [];
+      return r;
+    }
+    return null;
+  }
+}
+
+// ---------- exercise modal ----------
+function openEx(i) {
+  cur = GROUPS[curGroup][i];
+  const fam = FAM[cur.f];
+  $("exName").textContent = cur.n;
+  $("exMode").textContent = cur.f === "t" ? "Timer" : cur.f === "m" ? "Tap count" : "Auto count";
+  $("camPanel").style.display = fam ? "" : "none";
+  $("manualPanel").style.display = cur.f === "m" ? "" : "none";
+  $("timerPanel").style.display = cur.f === "t" ? "" : "none";
+  $("countBox").style.display = cur.f === "t" ? "none" : "";
+  counter = fam ? new Counter(fam) : null;
+  manual = 0; $("count").textContent = "0"; $("ang").textContent = "";
+  $("fb").textContent = fam ? "Press Start camera, then do reps." : "";
+  timerReset();
+  $("exModal").classList.add("open");
+}
+function closeEx() { camStop(); timerReset(); $("exModal").classList.remove("open"); }
+function resetCount() {
+  if (counter) counter.reps = [];
+  manual = 0; $("count").textContent = "0"; $("fb").textContent = "";
+}
+function tap() { manual++; $("count").textContent = manual; }
+function timerToggle() {
+  if (tInt) { clearInterval(tInt); tInt = null; $("tBtn").textContent = "Start"; return; }
+  const t0 = Date.now() - tSec * 1000;
+  tInt = setInterval(() => { tSec = Math.floor((Date.now() - t0) / 1000); $("tim").textContent = tSec + "s"; }, 250);
+  $("tBtn").textContent = "Pause";
+}
+function timerReset() { clearInterval(tInt); tInt = null; tSec = 0; $("tim").textContent = "0s"; $("tBtn").textContent = "Start"; }
+
+// ---------- camera and pose ----------
+async function loadModel() {
+  if (lm) return;
+  const mod = await import(MP);
+  const fs = await mod.FilesetResolver.forVisionTasks(MP + "/wasm");
+  const opts = d => ({ baseOptions: { modelAssetPath: MODEL, delegate: d }, runningMode: "VIDEO", numPoses: 1,
+    minPoseDetectionConfidence: 0.3, minPosePresenceConfidence: 0.3, minTrackingConfidence: 0.3 });
+  lm = await mod.PoseLandmarker.createFromOptions(fs, opts("GPU"))
+        .catch(() => mod.PoseLandmarker.createFromOptions(fs, opts("CPU")));
+}
+async function camStart() {
+  if (running) return camStop();
+  const b = $("camBtn"); b.disabled = true; $("fb").textContent = "Loading pose model...";
+  try {
+    await loadModel();
+    stream = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 }, audio: false });
+    const v = $("vid"); v.srcObject = stream; await v.play();
+    const c = $("cv"); c.width = v.videoWidth; c.height = v.videoHeight;
+    running = true; b.textContent = "Stop camera";
+    $("fb").textContent = "Counting. Do full reps.";
+    requestAnimationFrame(frame);
+  } catch (e) { $("fb").textContent = "Could not start camera: " + e.message; }
+  finally { b.disabled = false; }
+}
+function camStop() {
+  running = false;
+  if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
+  $("camBtn").textContent = "Start camera";
+}
+function frame() {
+  if (!running) return;
+  const v = $("vid"), c = $("cv"), x = c.getContext("2d");
+  if (v.readyState >= 2 && lm) {
+    let ts = Math.round(performance.now()); if (ts <= lastTs) ts = lastTs + 1; lastTs = ts;
+    const res = lm.detectForVideo(v, ts);
+    x.drawImage(v, 0, 0, c.width, c.height);
+    const side = $("side").value, fam = FAM[cur.f];
+    if (res.landmarks && res.landmarks[0]) {
+      const L = res.landmarks[0], f = {};
+      for (const k in LMI) f[k] = [L[LMI[k]].x * c.width, L[LMI[k]].y * c.height];
+      const a = drivingAngle(f, side, fam);
+      const pts = fam.j.map(j => f[side + "_" + j]);
+      x.strokeStyle = "#c6ff3d"; x.lineWidth = 5; x.beginPath();
+      pts.forEach((p, i) => i ? x.lineTo(p[0], p[1]) : x.moveTo(p[0], p[1]));
+      x.stroke();
+      $("ang").textContent = `angle ${a.toFixed(0)}°`;
+      const done = counter.push(a, leanOf(f, side), ts / 1000);
+      if (done) {
+        const n = counter.reps.length;
+        $("count").textContent = n;
+        $("fb").innerHTML = `Rep ${n}: <b>${done.score}/100</b><br>` + (done.flags.length
+          ? done.flags.map(s => `<span class="flag">${s.replace(/_/g, " ")}</span>`).join(" ")
+          : `<span class="flag ok">good form</span>`);
+      }
+    } else {
+      $("ang").textContent = "no person detected";
+    }
+  }
+  requestAnimationFrame(frame);
+}
+
+// ---------- init ----------
+renderUser();
+showGroup("Chest");
+</script>
+</body>
+</html>
+

@@ -1,0 +1,94 @@
+﻿<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>My profile Â· AI Gym Coach</title></head>
+<body>
+<div id="nav"></div>
+<main class="wrap" style="padding:40px 20px">
+  <div class="card" style="max-width:820px;margin:0 auto">
+    <p class="muted" style="margin:0">Your profile</p>
+    <h1 class="disp" id="name" style="font-size:64px;margin:6px 0 4px">â€¦</h1>
+    <div class="disp" id="uid" style="font-size:30px;color:var(--green)"></div>
+
+    <div class="card" style="margin-top:22px;border-color:var(--green)">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">
+        <div>
+          <div class="muted">Daily check-in</div>
+          <div><span class="disp" id="streak" style="font-size:56px;color:var(--green)">0</span>
+            <span class="muted"> day streak</span></div>
+        </div>
+        <button class="btn" id="checkBtn" onclick="checkIn()">Check in today</button>
+      </div>
+      <div class="muted" id="checkMsg" style="margin-top:8px;font-size:14px"></div>
+      <a href="/tracker" class="btn ghost" style="margin-top:14px;display:inline-block">See my progress, muscle groups and history â†’</a>
+    </div>
+
+    <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(170px,1fr));margin-top:18px">
+      <div class="card"><div class="muted">Email</div><div id="email" style="word-break:break-all"></div></div>
+      <div class="card"><div class="muted">Fitness goal</div><div id="goal"></div></div>
+      <div class="card"><div class="muted">Joined</div><div id="joined"></div></div>
+      <div class="card"><div class="muted">Sets logged</div><div class="disp" id="sets" style="font-size:40px"></div></div>
+      <div class="card"><div class="muted">Days attended</div><div class="disp" id="days" style="font-size:40px"></div></div>
+    </div>
+
+    <div class="card" style="margin-top:18px">
+      <div class="muted">Equipment</div><div id="equip"></div>
+      <div class="muted" style="margin-top:12px">Injuries to avoid</div><div id="inj"></div>
+    </div>
+
+    <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:24px">
+      <a class="btn" href="/start">Start Your Journey â†’</a>
+      <a class="btn ghost" href="/workouts">Browse workouts</a>
+      <button class="btn ghost" onclick="logout()">Log out</button>
+    </div>
+  </div>
+</main>
+<div id="footer"></div>
+<div id="toast"></div>
+<script src="/static/common.js?v=2"></script>
+<script>
+const GOAL_LABEL = { strength: "Get stronger", muscle: "Build muscle", fat_loss: "Lose fat",
+                     mobility: "Improve mobility", general: "General fitness" };
+
+async function loadDaily() {
+  const r = await fetch("/api/me/summary", { credentials: "same-origin" });
+  if (!r.ok) return;
+  const s = await r.json();
+  $("streak").textContent = s.streak;
+  $("days").textContent = s.days_attended;
+  const b = $("checkBtn");
+  b.disabled = s.checked_in_today;
+  b.textContent = s.checked_in_today ? "Checked in today âœ“" : "Check in today";
+}
+
+async function checkIn() {
+  const b = $("checkBtn");
+  b.disabled = true;
+  const r = await fetch("/api/checkin", { method: "POST", credentials: "same-origin" });
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) {
+    $("checkMsg").textContent = d.detail || "Could not check in.";
+    b.disabled = false;
+    return;
+  }
+  $("checkMsg").textContent = d.already ? "You already checked in today." : "Checked in. Keep the streak going!";
+  await loadDaily();
+}
+
+(async () => {
+  const r = await fetch("/auth/me");
+  if (!r.ok) { location.href = "/login?next=/profile"; return; }
+  const u = await r.json();
+  $("name").textContent = u.username;
+  $("uid").textContent = "UserID " + u.user_code;
+  $("email").textContent = u.email || "-";
+  $("goal").textContent = GOAL_LABEL[u.goal] || u.goal;
+  $("joined").textContent = u.joined || "-";
+  $("sets").textContent = u.sets_logged;
+  $("equip").textContent = u.equipment.join(", ") || "None listed";
+  $("inj").textContent = u.injuries.join(", ") || "None listed";
+  await loadDaily();
+})();
+</script>
+</body>
+</html>
+
